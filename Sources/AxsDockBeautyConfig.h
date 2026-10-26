@@ -37,6 +37,19 @@ typedef NS_ENUM(NSInteger, AxsDockBeautyBubbleColorMode) {
 - (BOOL)axs_dockbeauty_animFirefly;
 - (BOOL)axs_dockbeauty_animFish;
 - (NSInteger)axs_dockbeauty_fishCount;
+// 浮动参数：振幅倍数（1.0 = 12pt）、周期秒。
+- (double)axs_dockbeauty_floatAmplitude;
+- (double)axs_dockbeauty_floatPeriod;
+// 呼吸参数：缩放振幅（0.08 = ±8%）、周期秒。
+- (double)axs_dockbeauty_breathingAmplitude;
+- (double)axs_dockbeauty_breathingPeriod;
+// 弹簧物理：浮动用弹簧追踪而非纯正弦（更柔）。
+- (BOOL)axs_dockbeauty_springEnabled;
+// 流光控制：速度、宽度（占 Dock 宽比例）、高度（占 Dock 高比例）、不透明度。
+- (double)axs_dockbeauty_streamSpeed;
+- (double)axs_dockbeauty_streamWidth;
+- (double)axs_dockbeauty_streamHeight;
+- (double)axs_dockbeauty_streamOpacity;
 // 壁纸取色：开启后单色气泡 / 流光优先用桌面壁纸主色。
 - (BOOL)axs_dockbeauty_wallpaperTint;
 // 按时段自动换预设：白天 [7,19) 用 day 预设，其余用 night 预设。

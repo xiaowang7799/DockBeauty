@@ -19,6 +19,7 @@
 
         [items addObject:[PSSpecifier preferenceSpecifierNamed:@"一键预设" target:self
                      set:nil get:nil detail:nil cell:PSGroupCell edit:nil]];
+        [self axs_dockbeauty_addButton:@"禅意（浮动+呼吸+弹簧）" action:@selector(axs_dockbeauty_applyZenPreset:) to:items];
         [self axs_dockbeauty_addButton:@"赛博（流光+萤火虫+呼吸+随机）" action:@selector(axs_dockbeauty_applyCyberPreset:) to:items];
         [self axs_dockbeauty_addButton:@"水族馆（鱼缸5条+彩虹气泡）" action:@selector(axs_dockbeauty_applyAquariumPreset:) to:items];
         _specifiers = items;
@@ -113,6 +114,10 @@ static NSArray<NSString *> *axs_dockbeauty_presetKeys(void) {
              @"bubble_size_min", @"bubble_size_max", @"bubble_density",
              @"anim_float", @"anim_breathing", @"anim_random",
              @"anim_stream", @"anim_firefly", @"anim_fish", @"fish_count",
+             @"float_amplitude", @"float_period",
+             @"breathing_amplitude", @"breathing_period",
+             @"spring_enabled",
+             @"stream_speed", @"stream_width", @"stream_height", @"stream_opacity",
              @"wallpaper_tint", @"auto_schedule",
              @"schedule_day", @"schedule_night"];
 }
@@ -191,6 +196,29 @@ static NSArray<NSString *> *axs_dockbeauty_presetKeys(void) {
                 return;
             }
         }
+    }
+    [self reloadSpecifiers];
+}
+
+- (void)axs_dockbeauty_applyZenPreset:(id)sender {
+    NSDictionary *settings = @{
+        @"anim_float": @YES,
+        @"float_amplitude": @0.5,
+        @"float_period": @4.0,
+        @"anim_breathing": @YES,
+        @"breathing_amplitude": @0.08,
+        @"breathing_period": @5.0,
+        @"spring_enabled": @YES,
+        @"anim_random": @NO,
+        @"anim_stream": @NO,
+        @"anim_firefly": @NO,
+        @"anim_fish": @NO,
+        @"bubble_color_mode": @2,  // Transparent
+        @"bubble_density": @0.3,
+    };
+    NSError *error = nil;
+    for (NSString *key in settings) {
+        axs_dockbeauty_writePreference(key, settings[key], &error);
     }
     [self reloadSpecifiers];
 }

@@ -90,6 +90,9 @@ static UIColor *axs_dockbeauty_bubbleColor(AxsDockBeautyConfig *config) {
 @property (nonatomic, strong) CAGradientLayer *streamLayer;
 @property (nonatomic, strong) NSMutableArray<CALayer *> *fishLayers;
 @property (nonatomic, assign) CGPoint originalCenter;
+@property (nonatomic, assign) CGFloat springPos;   // 弹簧物理：当前偏移
+@property (nonatomic, assign) CGFloat springVel;   // 弹簧物理：速度
+@property (nonatomic, assign) CFTimeInterval lastTick;
 @end
 
 // 画一条简易鱼（椭圆身体 + 三角尾），返回 CALayer。
@@ -124,14 +127,20 @@ static CALayer *axs_dockbeauty_makeFish(CGSize size, UIColor *color) {
     a.start = CFAbsoluteTimeGetCurrent();
     a.originalCenter = dock.center;
 
-    // 流光渐变层。
+    // 流光渐变层（移动光带，zPosition 置于图标之上）。
     CAGradientLayer *stream = [CAGradientLayer layer];
     stream.frame = dock.bounds;
     stream.cornerRadius = dock.layer.cornerRadius > 0 ? dock.layer.cornerRadius : 28.0;
+    stream.zPosition = 90;
     stream.startPoint = CGPointMake(0, 0.5);
     stream.endPoint = CGPointMake(1, 0.5);
-    stream.colors = @[(id)[UIColor cyanColor].CGColor, (id)[UIColor magentaColor].CGColor];
+    stream.colors = @[(id)[UIColor clearColor].CGColor,
+                      (id)[UIColor cyanColor].CGColor,
+                      (id)[UIColor magentaColor].CGColor,
+                      (id)[UIColor clearColor].CGColor];
+    stream.locations = @[@0, @0.35, @0.65, @1];
     stream.opacity = 0.0;
+    stream.masksToBounds = YES;
     [dock.layer addSublayer:stream];
     a.streamLayer = stream;
 
@@ -213,17 +222,32 @@ static CALayer *axs_dockbeauty_makeFish(CGSize size, UIColor *color) {
     if (!dock) { [self stop]; return; }
     self.bubbles.frame = dock.bounds;
     self.fireflies.frame = dock.bounds;
-    self.streamLayer.frame = dock.bounds;
 
     AxsDockBeautyConfig *config = [AxsDockBeautyConfig axs_dockbeauty_shared];
     id strengthVal = [config axs_dockbeauty_valueForKey:@"value" defaultValue:@(1.0)];
     double strength = [strengthVal isKindOfClass:[NSNumber class]] ? [strengthVal doubleValue] : 1.0;
     double t = CFAbsoluteTimeGetCurrent() - self.start;
 
-    // ── 位置偏移：浮动 + 随机抖动 ──
+    // dt（弹簧积分用），钳制在 [1/120, 1/20] 秒。
+    double dt = link.duration > 0 ? link.duration : 1.0 / 60.0;
+    dt = fmax(1.0 / 120.0, fmin(1.0 / 20.0, dt));
+    if (self.lastTick <= 0) self.lastTick = t;
+
+    // ── 位置偏移：浮动（振幅/周期可调，可选弹簧物理） + 随机抖动 ──
     CGFloat offsetX = 0, offsetY = 0;
     if ([config axs_dockbeauty_animFloat]) {
-        offsetY += sin(t * 1.2) * 12.0 * strength;
+        double amp = 12.0 * [config axs_dockbeauty_floatAmplitude] * strength;
+        double period = [config axs_dockbeauty_floatPeriod];
+        CGFloat target = (CGFloat)(sin(t * 2.0 * M_PI / period) * amp);
+        if ([config axs_dockbeauty_springEnabled]) {
+            // 弹簧物理：k*(target-pos) - c*vel，二阶积分追踪目标，带阻尼回弹。
+            double k = 120.0, c = 14.0;
+            self.springVel += (CGFloat)((k * (target - self.springPos) - c * self.springVel) * dt);
+            self.springPos += self.springVel * (CGFloat)dt;
+            offsetY += self.springPos;
+        } else {
+            offsetY += target;
+        }
     }
     if ([config axs_dockbeauty_animRandom]) {
         offsetX += (CGFloat)(sin(t * 3.7) * 2.0 + sin(t * 7.3) * 1.5) * strength;
@@ -232,23 +256,40 @@ static CALayer *axs_dockbeauty_makeFish(CGSize size, UIColor *color) {
     CGPoint base = self.originalCenter;
     dock.layer.position = CGPointMake(base.x + offsetX, base.y + offsetY);
 
-    // ── 呼吸：缩放 ──
+    // ── 呼吸：sublayerTransform 缩放（view.transform 会被 SpringBoard 重置，这个不会） ──
     CGFloat scale = 1.0;
     if ([config axs_dockbeauty_animBreathing]) {
-        scale = 1.0 + (CGFloat)(sin(t * 0.8) * 0.06 * strength);
+        double bAmp = [config axs_dockbeauty_breathingAmplitude];
+        double bPeriod = [config axs_dockbeauty_breathingPeriod];
+        scale = 1.0 + (CGFloat)(sin(t * 2.0 * M_PI / bPeriod) * bAmp * strength);
     }
-    dock.layer.transform = CATransform3DMakeScale(scale, scale, 1.0);
+    dock.layer.sublayerTransform = CATransform3DMakeScale(scale, scale, 1.0);
 
-    // ── 流光渐变 ──
+    // ── 流光：移动光带（长/宽/高/速度/透明度可调） ──
     if ([config axs_dockbeauty_animStream]) {
-        self.streamLayer.opacity = 0.25;
+        self.streamLayer.opacity = (float)[config axs_dockbeauty_streamOpacity];
+        // 光带尺寸：宽 = Dock宽*stream_width，高 = Dock高*stream_height，垂直居中。
+        double wFrac = [config axs_dockbeauty_streamWidth];
+        double hFrac = [config axs_dockbeauty_streamHeight];
+        CGFloat bandW = (CGFloat)(dock.bounds.size.width * wFrac);
+        CGFloat bandH = (CGFloat)(dock.bounds.size.height * hFrac);
+        CGFloat bandY = (CGFloat)((dock.bounds.size.height - bandH) / 2.0);
+        // 光带横向来回扫动，速度 = stream_speed。
+        double speed = [config axs_dockbeauty_streamSpeed];
+        double travel = (sin(t * speed * 2.0) + 1.0) / 2.0;  // 0..1 往返
+        CGFloat bandX = (CGFloat)(travel * (dock.bounds.size.width - bandW));
+        self.streamLayer.frame = CGRectMake(bandX, bandY, bandW, bandH);
+        // 渐变：透明 → 主色 → 副色 → 透明（横向），色相随时间流动。
         double hue1 = [config axs_dockbeauty_streamHue];
         double hue2 = [config axs_dockbeauty_streamHue2];
         UIColor *c1 = [UIColor colorWithHue:fmod(hue1 + t * 0.05, 1.0) saturation:0.9 brightness:1 alpha:1];
         UIColor *c2 = [UIColor colorWithHue:fmod(hue2 + t * 0.05, 1.0) saturation:0.9 brightness:1 alpha:1];
-        self.streamLayer.colors = @[(id)c1.CGColor, (id)c2.CGColor];
+        self.streamLayer.colors = @[(id)[UIColor clearColor].CGColor,
+                                    (id)c1.CGColor, (id)c2.CGColor,
+                                    (id)[UIColor clearColor].CGColor];
     } else {
         self.streamLayer.opacity = 0;
+        self.streamLayer.frame = dock.bounds;
     }
 
     // ── 萤火虫 ──
@@ -373,6 +414,10 @@ static NSArray<NSString *> *axs_dockbeauty_presetKeys(void) {
              @"bubble_size_min", @"bubble_size_max", @"bubble_density",
              @"anim_float", @"anim_breathing", @"anim_random",
              @"anim_stream", @"anim_firefly", @"anim_fish", @"fish_count",
+             @"float_amplitude", @"float_period",
+             @"breathing_amplitude", @"breathing_period",
+             @"spring_enabled",
+             @"stream_speed", @"stream_width", @"stream_height", @"stream_opacity",
              @"wallpaper_tint", @"auto_schedule",
              @"schedule_day", @"schedule_night"];
 }

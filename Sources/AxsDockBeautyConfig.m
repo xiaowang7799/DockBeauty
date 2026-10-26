@@ -140,6 +140,35 @@ static double axs_dockbeauty_doubleForKey(AxsDockBeautyConfig *self, NSString *k
     return (NSInteger)fmax(1.0, fmin(12.0, d));
 }
 
+- (double)axs_dockbeauty_floatAmplitude {
+    return fmax(0.0, fmin(3.0, axs_dockbeauty_doubleForKey(self, @"float_amplitude", 1.0)));
+}
+- (double)axs_dockbeauty_floatPeriod {
+    return fmax(0.5, fmin(20.0, axs_dockbeauty_doubleForKey(self, @"float_period", 5.24)));
+}
+- (double)axs_dockbeauty_breathingAmplitude {
+    return fmax(0.0, fmin(0.3, axs_dockbeauty_doubleForKey(self, @"breathing_amplitude", 0.08)));
+}
+- (double)axs_dockbeauty_breathingPeriod {
+    return fmax(0.5, fmin(20.0, axs_dockbeauty_doubleForKey(self, @"breathing_period", 5.24)));
+}
+- (BOOL)axs_dockbeauty_springEnabled {
+    id v = self.snapshot[@"spring_enabled"];
+    return [v isKindOfClass:[NSNumber class]] ? [v boolValue] : NO;
+}
+- (double)axs_dockbeauty_streamSpeed {
+    return fmax(0.05, fmin(3.0, axs_dockbeauty_doubleForKey(self, @"stream_speed", 0.4)));
+}
+- (double)axs_dockbeauty_streamWidth {
+    return fmax(0.1, fmin(1.0, axs_dockbeauty_doubleForKey(self, @"stream_width", 0.6)));
+}
+- (double)axs_dockbeauty_streamHeight {
+    return fmax(0.1, fmin(1.0, axs_dockbeauty_doubleForKey(self, @"stream_height", 1.0)));
+}
+- (double)axs_dockbeauty_streamOpacity {
+    return fmax(0.05, fmin(1.0, axs_dockbeauty_doubleForKey(self, @"stream_opacity", 0.45)));
+}
+
 - (BOOL)axs_dockbeauty_wallpaperTint {
     id value = self.snapshot[@"wallpaper_tint"];
     return [value isKindOfClass:[NSNumber class]] ? [value boolValue] : NO;
