@@ -1,6 +1,7 @@
 #import <UIKit/UIKit.h>
 #import <math.h>
 #import "AxsDockBeautyConfig.h"
+#import "AxsDockBeautyPreferences.h"
 #import "AxsDockBeautyPrivate.h"
 
 // ── Dock 美化版：浮动 + 气泡 / 流光配色 ──────────────────────────────────────
@@ -19,7 +20,7 @@
     size_t w = 32, h = (size_t)(32 * (double)CGImageGetHeight(cg) / CGImageGetWidth(cg) ?: 32);
     if (h == 0) h = 32;
     CGColorSpaceRef space = CGColorSpaceCreateDeviceRGB();
-    uint8_t *buf = calloc(w * h * 4, 1);
+    uint8_t *buf = (uint8_t *)calloc(w * h * 4, 1);
     if (!buf) { CGColorSpaceRelease(space); return nil; }
     CGContextRef ctx = CGBitmapContextCreate(buf, w, h, 8, w * 4, space,
         kCGImageAlphaPremultipliedLast | kCGBitmapByteOrder32Big);
@@ -35,6 +36,9 @@
 @end
 
 // 壁纸取色（仅 iOS 13+ 的私有类，失败返回 nil，不强制）。
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Warc-performSelector-leaks"
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 static UIColor *axs_dockbeauty_wallpaperColor(void) {
     if (@available(iOS 13.0, *)) {
         Class cls = NSClassFromString(@"SBFWallpaperView");
@@ -51,6 +55,7 @@ static UIColor *axs_dockbeauty_wallpaperColor(void) {
     }
     return nil;
 }
+#pragma clang diagnostic pop
 
 // 单色气泡颜色：透明模式返回 clearColor；开启壁纸取色则改取壁纸主色。
 static UIColor *axs_dockbeauty_bubbleColor(AxsDockBeautyConfig *config) {
@@ -191,7 +196,10 @@ static void axs_dockbeauty_attachIfNeeded(void) {
     if (axs_dockbeauty_animators == nil) axs_dockbeauty_animators = [NSMutableArray array];
     // 找到 SBMainDockView / SBDockView（类名随版本变化，按后缀匹配）。
     UIWindow *key = nil;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     for (UIWindow *w in [UIApplication sharedApplication].windows) {
+#pragma clang diagnostic pop
         if (w.isKeyWindow) { key = w; break; }
     }
     if (!key) return;
