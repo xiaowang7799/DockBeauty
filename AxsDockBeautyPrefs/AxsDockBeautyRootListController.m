@@ -15,9 +15,7 @@
                                                            target:self] mutableCopy];
         [items addObject:[PSSpecifier preferenceSpecifierNamed:@"关于我们" target:self
                      set:nil get:nil detail:nil cell:PSGroupCell edit:nil]];
-        [self axs_dockbeauty_addButton:@"Sileo 越狱源" action:@selector(axs_dockbeauty_openRepository:) to:items];
-        [self axs_dockbeauty_addButton:@"TG分享频道" action:@selector(axs_dockbeauty_openTelegram:) to:items];
-        [self axs_dockbeauty_addButton:@"QQ交流群组" action:@selector(axs_dockbeauty_openQQ:) to:items];
+        [self axs_dockbeauty_addButton:@"GitHub 仓库" action:@selector(axs_dockbeauty_openRepository:) to:items];
         _specifiers = items;
     }
     return _specifiers;
@@ -66,22 +64,13 @@
 }
 
 - (void)axs_dockbeauty_openRepository:(id)sender {
-    NSString *source = @"https://github.com/YOUR_GITHUB/DockBeauty";
+    NSString *source = @"https://github.com/xiaowang7799/DockBeauty";
     // Encode the entire URL as a path component, including its own delimiters.
     NSCharacterSet *allowed = [NSCharacterSet characterSetWithCharactersInString:
                               @"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~"];
     NSString *encoded = [source stringByAddingPercentEncodingWithAllowedCharacters:allowed];
     NSURL *primary = [NSURL URLWithString:[@"sileo://source/" stringByAppendingString:encoded]];
     [self axs_dockbeauty_openURL:primary fallback:[NSURL URLWithString:source]];
-}
-
-- (void)axs_dockbeauty_openTelegram:(id)sender {
-    [self axs_dockbeauty_openURL:[NSURL URLWithString:@"tg://resolve?domain=YOUR_TG"]
-                   fallback:[NSURL URLWithString:@"https://t.me/YOUR_TG"]];
-}
-
-- (void)axs_dockbeauty_openQQ:(id)sender {
-    [self axs_dockbeauty_openURL:[NSURL URLWithString:@"mqqapi://card/show_pslcard?src_type=internal&version=1&uin=YOUR_QQ&card_type=group&source=qrcode"] fallback:nil];
 }
 
 - (void)tableView:(UITableView *)tableView willDisplayCell:(UITableViewCell *)cell
