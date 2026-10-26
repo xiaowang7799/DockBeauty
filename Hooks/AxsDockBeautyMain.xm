@@ -204,8 +204,9 @@ static UIColor *axs_dockbeauty_streamColor(AxsDockBeautyConfig *config, double t
 static NSMutableArray<AxsDockBeautyAnimator *> *axs_dockbeauty_animators;
 
 // 给指定 Dock 视图挂动画（已挂过的跳过；顺带清理已失效的动画器）。
-static void axs_dockbeauty_attachToDock(UIView *dock) {
-    if (!dock) return;
+static void axs_dockbeauty_attachToDock(id dockObj) {
+    if (!dockObj || ![dockObj isKindOfClass:[UIView class]]) return;
+    UIView *dock = (UIView *)dockObj;
     AxsDockBeautyConfig *config = [AxsDockBeautyConfig axs_dockbeauty_shared];
     if (![config axs_dockbeauty_isEnabled]) return;
     if (axs_dockbeauty_animators == nil) axs_dockbeauty_animators = [NSMutableArray array];
