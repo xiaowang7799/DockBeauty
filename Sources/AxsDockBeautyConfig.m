@@ -112,7 +112,36 @@ static double axs_dockbeauty_doubleForKey(AxsDockBeautyConfig *self, NSString *k
 }
 
 - (double)axs_dockbeauty_glowWidth {
-    return fmax(1.0, fmin(10.0, axs_dockbeauty_doubleForKey(self, @"glow_width", 3.0)));
+    return fmax(0.0, fmin(10.0, axs_dockbeauty_doubleForKey(self, @"glow_width", 3.0)));
+}
+
+- (BOOL)axs_dockbeauty_animFloat {
+    id v = self.snapshot[@"anim_float"];
+    return [v isKindOfClass:[NSNumber class]] ? [v boolValue] : YES;
+}
+- (BOOL)axs_dockbeauty_animBreathing {
+    id v = self.snapshot[@"anim_breathing"];
+    return [v isKindOfClass:[NSNumber class]] ? [v boolValue] : NO;
+}
+- (BOOL)axs_dockbeauty_animRandom {
+    id v = self.snapshot[@"anim_random"];
+    return [v isKindOfClass:[NSNumber class]] ? [v boolValue] : NO;
+}
+- (BOOL)axs_dockbeauty_animStream {
+    id v = self.snapshot[@"anim_stream"];
+    return [v isKindOfClass:[NSNumber class]] ? [v boolValue] : NO;
+}
+- (BOOL)axs_dockbeauty_animFirefly {
+    id v = self.snapshot[@"anim_firefly"];
+    return [v isKindOfClass:[NSNumber class]] ? [v boolValue] : NO;
+}
+- (BOOL)axs_dockbeauty_animFish {
+    id v = self.snapshot[@"anim_fish"];
+    return [v isKindOfClass:[NSNumber class]] ? [v boolValue] : NO;
+}
+- (NSInteger)axs_dockbeauty_fishCount {
+    double d = axs_dockbeauty_doubleForKey(self, @"fish_count", 5.0);
+    return (NSInteger)fmax(1.0, fmin(12.0, d));
 }
 
 - (BOOL)axs_dockbeauty_wallpaperTint {

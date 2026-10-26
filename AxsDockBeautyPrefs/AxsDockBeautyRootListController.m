@@ -16,6 +16,11 @@
         [items addObject:[PSSpecifier preferenceSpecifierNamed:@"关于我们" target:self
                      set:nil get:nil detail:nil cell:PSGroupCell edit:nil]];
         [self axs_dockbeauty_addButton:@"GitHub 仓库" action:@selector(axs_dockbeauty_openRepository:) to:items];
+
+        [items addObject:[PSSpecifier preferenceSpecifierNamed:@"一键预设" target:self
+                     set:nil get:nil detail:nil cell:PSGroupCell edit:nil]];
+        [self axs_dockbeauty_addButton:@"赛博（流光+萤火虫+呼吸+随机）" action:@selector(axs_dockbeauty_applyCyberPreset:) to:items];
+        [self axs_dockbeauty_addButton:@"水族馆（鱼缸5条+彩虹气泡）" action:@selector(axs_dockbeauty_applyAquariumPreset:) to:items];
         _specifiers = items;
     }
     return _specifiers;
@@ -107,6 +112,8 @@ static NSArray<NSString *> *axs_dockbeauty_presetKeys(void) {
              @"stream_hue", @"stream_hue2",
              @"bubble_size_min", @"bubble_size_max", @"bubble_density",
              @"glow_width",
+             @"anim_float", @"anim_breathing", @"anim_random",
+             @"anim_stream", @"anim_firefly", @"anim_fish", @"fish_count",
              @"wallpaper_tint", @"auto_schedule",
              @"schedule_day", @"schedule_night"];
 }
@@ -185,6 +192,52 @@ static NSArray<NSString *> *axs_dockbeauty_presetKeys(void) {
                 return;
             }
         }
+    }
+    [self reloadSpecifiers];
+}
+
+- (void)axs_dockbeauty_applyCyberPreset:(id)sender {
+    NSDictionary *settings = @{
+        @"glow_width": @0,
+        @"anim_float": @YES,
+        @"anim_breathing": @YES,
+        @"anim_random": @YES,
+        @"anim_stream": @YES,
+        @"anim_firefly": @YES,
+        @"anim_fish": @NO,
+        @"bubble_color_mode": @1,  // Single
+        @"bubble_hue": @0.5,       // 青色
+        @"bubble_saturation": @0.9,
+        @"bubble_value": @1.0,
+        @"stream_hue": @0.5,
+        @"stream_hue2": @0.83,
+        @"bubble_density": @1.0,
+    };
+    NSError *error = nil;
+    for (NSString *key in settings) {
+        axs_dockbeauty_writePreference(key, settings[key], &error);
+    }
+    [self reloadSpecifiers];
+}
+
+- (void)axs_dockbeauty_applyAquariumPreset:(id)sender {
+    NSDictionary *settings = @{
+        @"glow_width": @0,
+        @"anim_float": @NO,
+        @"anim_breathing": @NO,
+        @"anim_random": @NO,
+        @"anim_stream": @NO,
+        @"anim_firefly": @NO,
+        @"anim_fish": @YES,
+        @"fish_count": @5,
+        @"bubble_color_mode": @0,  // Rainbow
+        @"bubble_density": @1.5,
+        @"bubble_size_min": @6,
+        @"bubble_size_max": @12,
+    };
+    NSError *error = nil;
+    for (NSString *key in settings) {
+        axs_dockbeauty_writePreference(key, settings[key], &error);
     }
     [self reloadSpecifiers];
 }

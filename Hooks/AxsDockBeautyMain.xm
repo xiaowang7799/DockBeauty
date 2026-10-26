@@ -107,8 +107,35 @@ static UIColor *axs_dockbeauty_streamColor(AxsDockBeautyConfig *config, double t
 @property (nonatomic, assign) CFTimeInterval start;
 @property (nonatomic, strong) CALayer *glowLayer;
 @property (nonatomic, strong) CAEmitterLayer *bubbles;
+@property (nonatomic, strong) CAEmitterLayer *fireflies;
+@property (nonatomic, strong) CAGradientLayer *streamLayer;
+@property (nonatomic, strong) NSMutableArray<CALayer *> *fishLayers;
 @property (nonatomic, assign) CGPoint originalCenter;
 @end
+
+// 画一条简易鱼（椭圆身体 + 三角尾），返回 CALayer。
+static CALayer *axs_dockbeauty_makeFish(CGSize size, UIColor *color) {
+    CALayer *fish = [CALayer layer];
+    fish.bounds = (CGRect){CGPointZero, size};
+    fish.cornerRadius = size.height / 2.0;
+    fish.backgroundColor = color.CGColor;
+    // 尾巴
+    CALayer *tail = [CALayer layer];
+    tail.bounds = CGRectMake(0, 0, size.width * 0.35, size.height * 0.7);
+    tail.position = CGPointMake(-size.width * 0.15, size.height / 2.0);
+    tail.backgroundColor = [color colorWithAlphaComponent:0.7].CGColor;
+    tail.cornerRadius = 2;
+    tail.transform = CATransform3DMakeRotation(M_PI_4, 0, 0, 1);
+    [fish addSublayer:tail];
+    // 眼睛
+    CALayer *eye = [CALayer layer];
+    eye.bounds = CGRectMake(0, 0, 3, 3);
+    eye.position = CGPointMake(size.width * 0.75, size.height * 0.35);
+    eye.cornerRadius = 1.5;
+    eye.backgroundColor = [UIColor whiteColor].CGColor;
+    [fish addSublayer:eye];
+    return fish;
+}
 
 @implementation AxsDockBeautyAnimator
 
@@ -116,18 +143,29 @@ static UIColor *axs_dockbeauty_streamColor(AxsDockBeautyConfig *config, double t
     AxsDockBeautyAnimator *a = [[self alloc] init];
     a.dockView = dock;
     a.start = CFAbsoluteTimeGetCurrent();
-    a.originalCenter = dock.center;   // 记录原始位置，浮动用 layer.position 不会被 SpringBoard 覆盖
+    a.originalCenter = dock.center;
 
+    // 描边层（glow_width=0 时隐藏）。
     CALayer *glow = [CALayer layer];
     glow.frame = dock.bounds;
     glow.cornerRadius = dock.layer.cornerRadius > 0 ? dock.layer.cornerRadius : 28.0;
     glow.zPosition = 100;
     glow.backgroundColor = [UIColor clearColor].CGColor;
-    glow.borderWidth = 3.0;
-    glow.borderColor = [UIColor cyanColor].CGColor;
+    glow.borderWidth = 0;
     glow.opacity = 0.95;
     [dock.layer addSublayer:glow];
     a.glowLayer = glow;
+
+    // 流光渐变层。
+    CAGradientLayer *stream = [CAGradientLayer layer];
+    stream.frame = dock.bounds;
+    stream.cornerRadius = glow.cornerRadius;
+    stream.startPoint = CGPointMake(0, 0.5);
+    stream.endPoint = CGPointMake(1, 0.5);
+    stream.colors = @[(id)[UIColor cyanColor].CGColor, (id)[UIColor magentaColor].CGColor];
+    stream.opacity = 0.0;
+    [dock.layer addSublayer:stream];
+    a.streamLayer = stream;
 
     // 气泡粒子层。
     CAEmitterLayer *emit = [CAEmitterLayer layer];
@@ -140,27 +178,62 @@ static UIColor *axs_dockbeauty_streamColor(AxsDockBeautyConfig *config, double t
     [dock.layer addSublayer:emit];
     a.bubbles = emit;
 
-    // 生成一个圆形粒子图（气泡 sprite），没有 contents 粒子不可见。
+    // 气泡 sprite。
     UIGraphicsBeginImageContextWithOptions(CGSizeMake(24, 24), NO, 0);
     CGContextRef ctx = UIGraphicsGetCurrentContext();
     CGContextSetFillColorWithColor(ctx, [UIColor whiteColor].CGColor);
     CGContextFillEllipseInRect(ctx, CGRectMake(2, 2, 20, 20));
     UIImage *bubbleImg = UIGraphicsGetImageFromCurrentImageContext();
     UIGraphicsEndImageContext();
+    CAEmitterCell *bCell = [CAEmitterCell emitterCell];
+    bCell.name = @"bubble";
+    bCell.contents = (__bridge id)bubbleImg.CGImage;
+    bCell.birthRate = 8.0; bCell.lifetime = 4.0;
+    bCell.velocity = 40.0; bCell.velocityRange = 20.0;
+    bCell.emissionLongitude = -M_PI_2; bCell.emissionRange = M_PI_4;
+    bCell.scale = 0.5; bCell.scaleRange = 0.3; bCell.alphaSpeed = -0.25;
+    emit.emitterCells = @[bCell];
 
-    CAEmitterCell *cell = [CAEmitterCell emitterCell];
-    cell.name = @"bubble";
-    cell.contents = (__bridge id)bubbleImg.CGImage;
-    cell.birthRate = 8.0;
-    cell.lifetime = 4.0;
-    cell.velocity = 40.0;
-    cell.velocityRange = 20.0;
-    cell.emissionLongitude = -M_PI_2;
-    cell.emissionRange = M_PI_4;
-    cell.scale = 0.5;
-    cell.scaleRange = 0.3;
-    cell.alphaSpeed = -0.25;
-    emit.emitterCells = @[cell];
+    // 萤火虫粒子层。
+    CAEmitterLayer *ff = [CAEmitterLayer layer];
+    ff.frame = dock.bounds;
+    ff.emitterPosition = CGPointMake(CGRectGetMidX(dock.bounds), CGRectGetMidY(dock.bounds));
+    ff.emitterSize = dock.bounds.size;
+    ff.emitterShape = kCAEmitterLayerRectangle;
+    ff.renderMode = kCAEmitterLayerAdditive;
+    ff.opacity = 0.0;
+    [dock.layer addSublayer:ff];
+    a.fireflies = ff;
+    CAEmitterCell *fCell = [CAEmitterCell emitterCell];
+    fCell.name = @"firefly";
+    fCell.contents = (__bridge id)bubbleImg.CGImage;
+    fCell.birthRate = 3.0; fCell.lifetime = 6.0;
+    fCell.velocity = 15.0; fCell.velocityRange = 10.0;
+    fCell.emissionRange = M_PI * 2;
+    fCell.scale = 0.15; fCell.scaleRange = 0.1;
+    fCell.color = [UIColor colorWithRed:1 green:0.95 blue:0.4 alpha:1].CGColor;
+    fCell.alphaSpeed = -0.1;
+    ff.emitterCells = @[fCell];
+
+    // 鱼缸：创建 N 条鱼。
+    a.fishLayers = [NSMutableArray array];
+    NSInteger fishCount = [config axs_dockbeauty_fishCount];
+    NSArray<UIColor *> *fishColors = @[
+        [UIColor systemOrangeColor], [UIColor systemTealColor],
+        [UIColor systemPinkColor], [UIColor systemYellowColor],
+        [UIColor systemPurpleColor], [UIColor systemGreenColor],
+    ];
+    for (NSInteger i = 0; i < fishCount; i++) {
+        CGSize sz = CGSizeMake(28 + (i % 3) * 8, 14 + (i % 3) * 4);
+        UIColor *c = fishColors[i % fishCount < fishColors.count ? i % fishColors.count : 0];
+        CALayer *fish = axs_dockbeauty_makeFish(sz, c);
+        fish.position = CGPointMake(CGRectGetMidX(dock.bounds) + (i - fishCount / 2.0) * 40,
+                                     CGRectGetMidY(dock.bounds));
+        fish.opacity = 0.0;
+        fish.zPosition = 50;
+        [dock.layer addSublayer:fish];
+        [a.fishLayers addObject:fish];
+    }
 
     a.link = [CADisplayLink displayLinkWithTarget:a selector:@selector(tick:)];
     [a.link addToRunLoop:[NSRunLoop mainRunLoop] forMode:NSRunLoopCommonModes];
@@ -173,23 +246,83 @@ static UIColor *axs_dockbeauty_streamColor(AxsDockBeautyConfig *config, double t
     self.glowLayer.frame = dock.bounds;
     self.glowLayer.cornerRadius = dock.layer.cornerRadius > 0 ? dock.layer.cornerRadius : 28.0;
     self.bubbles.frame = dock.bounds;
+    self.fireflies.frame = dock.bounds;
+    self.streamLayer.frame = dock.bounds;
 
     AxsDockBeautyConfig *config = [AxsDockBeautyConfig axs_dockbeauty_shared];
     id strengthVal = [config axs_dockbeauty_valueForKey:@"value" defaultValue:@(1.0)];
     double strength = [strengthVal isKindOfClass:[NSNumber class]] ? [strengthVal doubleValue] : 1.0;
     double t = CFAbsoluteTimeGetCurrent() - self.start;
 
-    // 浮动：用 layer.position 偏移（SpringBoard 会覆盖 view.transform，但不动 layer.position）。
-    CGFloat floatAmp = 12.0 * strength;
+    // ── 位置偏移：浮动 + 随机抖动 ──
+    CGFloat offsetX = 0, offsetY = 0;
+    if ([config axs_dockbeauty_animFloat]) {
+        offsetY += sin(t * 1.2) * 12.0 * strength;
+    }
+    if ([config axs_dockbeauty_animRandom]) {
+        offsetX += (CGFloat)(sin(t * 3.7) * 2.0 + sin(t * 7.3) * 1.5) * strength;
+        offsetY += (CGFloat)(cos(t * 4.1) * 2.0 + cos(t * 9.1) * 1.5) * strength;
+    }
     CGPoint base = self.originalCenter;
-    dock.layer.position = CGPointMake(base.x, base.y + (CGFloat)(sin(t * 1.2) * floatAmp));
+    dock.layer.position = CGPointMake(base.x + offsetX, base.y + offsetY);
 
-    // 流光描边：颜色 + 宽度从配置读。
-    UIColor *stream = axs_dockbeauty_streamColor(config, t * 0.4);
-    self.glowLayer.borderColor = stream.CGColor;
-    self.glowLayer.borderWidth = [config axs_dockbeauty_glowWidth];
+    // ── 呼吸：缩放 ──
+    CGFloat scale = 1.0;
+    if ([config axs_dockbeauty_animBreathing]) {
+        scale = 1.0 + (CGFloat)(sin(t * 0.8) * 0.06 * strength);
+    }
+    dock.layer.transform = CATransform3DMakeScale(scale, scale, 1.0);
 
-    // 气泡粒子。
+    // ── 描边（glow_width>0 时显示） ──
+    double gw = [config axs_dockbeauty_glowWidth];
+    if (gw > 0.1) {
+        self.glowLayer.borderWidth = gw;
+        UIColor *stream = axs_dockbeauty_streamColor(config, t * 0.4);
+        self.glowLayer.borderColor = stream.CGColor;
+        self.glowLayer.opacity = 0.95;
+    } else {
+        self.glowLayer.borderWidth = 0;
+        self.glowLayer.opacity = 0;
+    }
+
+    // ── 流光渐变 ──
+    if ([config axs_dockbeauty_animStream]) {
+        self.streamLayer.opacity = 0.25;
+        double hue1 = [config axs_dockbeauty_streamHue];
+        double hue2 = [config axs_dockbeauty_streamHue2];
+        UIColor *c1 = [UIColor colorWithHue:fmod(hue1 + t * 0.05, 1.0) saturation:0.9 brightness:1 alpha:1];
+        UIColor *c2 = [UIColor colorWithHue:fmod(hue2 + t * 0.05, 1.0) saturation:0.9 brightness:1 alpha:1];
+        self.streamLayer.colors = @[(id)c1.CGColor, (id)c2.CGColor];
+    } else {
+        self.streamLayer.opacity = 0;
+    }
+
+    // ── 萤火虫 ──
+    if ([config axs_dockbeauty_animFirefly]) {
+        self.fireflies.opacity = 0.8;
+    } else {
+        self.fireflies.opacity = 0;
+    }
+
+    // ── 鱼缸 ──
+    BOOL fishOn = [config axs_dockbeauty_animFish];
+    NSInteger fishCount = [config axs_dockbeauty_fishCount];
+    for (NSInteger i = 0; i < (NSInteger)self.fishLayers.count; i++) {
+        CALayer *fish = self.fishLayers[i];
+        if (!fishOn || i >= fishCount) { fish.opacity = 0; continue; }
+        fish.opacity = 0.85;
+        // 水平游动（正弦往返），垂直轻微摆动。
+        double speed = 0.3 + (i % 5) * 0.08;
+        double phase = t * speed + i * 1.3;
+        CGFloat fishX = (CGFloat)(sin(phase) * dock.bounds.size.width * 0.35) + CGRectGetMidX(dock.bounds);
+        CGFloat fishY = (CGFloat)(cos(phase * 0.7) * 10.0) + CGRectGetMidY(dock.bounds);
+        fish.position = CGPointMake(fishX, fishY);
+        // 根据方向翻转。
+        double dx = cos(phase);
+        fish.transform = dx < 0 ? CATransform3DMakeScale(-1, 1, 1) : CATransform3DIdentity;
+    }
+
+    // ── 气泡 ──
     AxsDockBeautyBubbleColorMode mode = [config axs_dockbeauty_bubbleColorMode];
     if (mode == AxsDockBeautyBubbleColorTransparent) {
         self.bubbles.opacity = 0.0;
@@ -208,6 +341,17 @@ static UIColor *axs_dockbeauty_streamColor(AxsDockBeautyConfig *config, double t
         }
     }
 }
+
+- (void)stop {
+    [self.link invalidate];
+    self.link = nil;
+    [self.glowLayer removeFromSuperlayer];
+    [self.bubbles removeFromSuperlayer];
+    [self.fireflies removeFromSuperlayer];
+    [self.streamLayer removeFromSuperlayer];
+    for (CALayer *f in self.fishLayers) [f removeFromSuperlayer];
+}
+@end
 
 - (void)stop {
     [self.link invalidate];
@@ -283,6 +427,8 @@ static NSArray<NSString *> *axs_dockbeauty_presetKeys(void) {
              @"stream_hue", @"stream_hue2",
              @"bubble_size_min", @"bubble_size_max", @"bubble_density",
              @"glow_width",
+             @"anim_float", @"anim_breathing", @"anim_random",
+             @"anim_stream", @"anim_firefly", @"anim_fish", @"fish_count",
              @"wallpaper_tint", @"auto_schedule",
              @"schedule_day", @"schedule_night"];
 }

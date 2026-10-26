@@ -150,6 +150,63 @@
 
 		<dict>
 			<key>cell</key><string>PSGroupCell</string>
+			<key>label</key><string>动画模式</string>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSSwitchCell</string>
+			<key>label</key><string>浮动</string>
+			<key>key</key><string>anim_float</string>
+			<key>defaults</key><string>com.axs.dockbeauty</string>
+			<key>default</key><true/>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSSwitchCell</string>
+			<key>label</key><string>呼吸（缩放脉动）</string>
+			<key>key</key><string>anim_breathing</string>
+			<key>defaults</key><string>com.axs.dockbeauty</string>
+			<key>default</key><false/>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSSwitchCell</string>
+			<key>label</key><string>随机抖动（小幅）</string>
+			<key>key</key><string>anim_random</string>
+			<key>defaults</key><string>com.axs.dockbeauty</string>
+			<key>default</key><false/>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSSwitchCell</string>
+			<key>label</key><string>流光渐变</string>
+			<key>key</key><string>anim_stream</string>
+			<key>defaults</key><string>com.axs.dockbeauty</string>
+			<key>default</key><false/>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSSwitchCell</string>
+			<key>label</key><string>萤火虫</string>
+			<key>key</key><string>anim_firefly</string>
+			<key>defaults</key><string>com.axs.dockbeauty</string>
+			<key>default</key><false/>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSSwitchCell</string>
+			<key>label</key><string>鱼缸</string>
+			<key>key</key><string>anim_fish</string>
+			<key>defaults</key><string>com.axs.dockbeauty</string>
+			<key>default</key><false/>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSTitleValueCell</string>
+			<key>cellClass</key><string>AxsDockBeautySliderCell</string>
+			<key>label</key><string>鱼的数量</string>
+			<key>key</key><string>fish_count</string>
+			<key>defaults</key><string>com.axs.dockbeauty</string>
+			<key>default</key><real>5</real>
+			<key>min</key><real>1</real>
+			<key>max</key><real>12</real>
+		</dict>
+
+		<dict>
+			<key>cell</key><string>PSGroupCell</string>
 			<key>label</key><string>智能配色与时段</string>
 		</dict>
 		<dict>
