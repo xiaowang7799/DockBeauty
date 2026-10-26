@@ -188,9 +188,12 @@ static NSArray<NSString *> *axs_dockbeauty_presetKeys(void) {
     NSError *error = nil;
     for (NSString *key in axs_dockbeauty_presetKeys()) {
         id value = settings[key];
-        if (value && ![axs_dockbeauty_writePreference(key, value, &error) boolValue] && error) {
-            [self axs_dockbeauty_showSaveError:error];
-            return;
+        if (value) {
+            BOOL ok = axs_dockbeauty_writePreference(key, value, &error);
+            if (!ok) {
+                [self axs_dockbeauty_showSaveError:error];
+                return;
+            }
         }
     }
     [self reloadSpecifiers];
