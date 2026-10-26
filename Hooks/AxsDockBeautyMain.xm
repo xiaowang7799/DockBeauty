@@ -204,7 +204,8 @@ static void axs_dockbeauty_attachIfNeeded(void) {
     }
     if (!key) return;
     __block BOOL found = NO;
-    void (^walk)(UIView *) = ^(UIView *view) {
+    __block void (^walk)(UIView *);
+    walk = ^(UIView *view) {
         for (UIView *sub in view.subviews) {
             NSString *cls = NSStringFromClass([sub class]);
             if ([cls hasSuffix:@"DockView"]) {
