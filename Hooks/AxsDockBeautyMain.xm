@@ -188,7 +188,25 @@ static UIColor *axs_dockbeauty_streamColor(AxsDockBeautyConfig *config, double t
 }
 @end
 
+@class AxsDockBeautyAnimator;
 static NSMutableArray<AxsDockBeautyAnimator *> *axs_dockbeauty_animators;
+
+// 递归遍历视图树：遇到 *DockView 就挂载动画（已挂载的跳过）。
+static void axs_dockbeauty_walk(UIView *view, AxsDockBeautyConfig *config) {
+    for (UIView *sub in view.subviews) {
+        NSString *cls = NSStringFromClass([sub class]);
+        if ([cls hasSuffix:@"DockView"]) {
+            BOOL already = NO;
+            for (AxsDockBeautyAnimator *a in axs_dockbeauty_animators) {
+                if (a.dockView == sub) { already = YES; break; }
+            }
+            if (!already) {
+                [axs_dockbeauty_animators addObject:[AxsDockBeautyAnimator animatorForDock:sub config:config]];
+            }
+        }
+        axs_dockbeauty_walk(sub, config);
+    }
+}
 
 static void axs_dockbeauty_attachIfNeeded(void) {
     AxsDockBeautyConfig *config = [AxsDockBeautyConfig axs_dockbeauty_shared];
@@ -203,26 +221,7 @@ static void axs_dockbeauty_attachIfNeeded(void) {
         if (w.isKeyWindow) { key = w; break; }
     }
     if (!key) return;
-    __block BOOL found = NO;
-    __block void (^walk)(UIView *);
-    walk = ^(UIView *view) {
-        for (UIView *sub in view.subviews) {
-            NSString *cls = NSStringFromClass([sub class]);
-            if ([cls hasSuffix:@"DockView"]) {
-                found = YES;
-                BOOL already = NO;
-                for (AxsDockBeautyAnimator *a in axs_dockbeauty_animators) {
-                    if (a.dockView == sub) { already = YES; break; }
-                }
-                if (!already) {
-                    [axs_dockbeauty_animators addObject:[AxsDockBeautyAnimator animatorForDock:sub config:config]];
-                }
-            }
-            walk(sub);
-        }
-    };
-    walk(key);
-    (void)found;
+    axs_dockbeauty_walk(key, config);
 }
 
 // 按时段自动换预设：白天 [7,19) 用 day 预设，否则 night 预设（名字对应用户保存的预设）。
