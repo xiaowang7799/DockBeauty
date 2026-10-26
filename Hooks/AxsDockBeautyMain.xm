@@ -38,24 +38,31 @@
 @end
 
 // 壁纸取色（仅 iOS 13+ 的私有类，失败返回 nil，不强制）。
+// 结果缓存 5 秒：每帧解码整张壁纸是发热主因，绝不能逐帧重算。
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Warc-performSelector-leaks"
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
 static UIColor *axs_dockbeauty_wallpaperColor(void) {
+    static UIColor *cached = nil;
+    static CFTimeInterval cachedAt = -100.0;
+    CFTimeInterval now = CFAbsoluteTimeGetCurrent();
+    if (cached && now - cachedAt < 5.0) return cached;
+    cachedAt = now;   // 失败也 5 秒后再试，不逐帧重试
     if (@available(iOS 13.0, *)) {
         Class cls = NSClassFromString(@"SBFWallpaperView");
-        if (!cls) return nil;
+        if (!cls) return cached;
         SEL sharedSel = NSSelectorFromString(@"sharedInstance");
-        if (![cls respondsToSelector:sharedSel]) return nil;
+        if (![cls respondsToSelector:sharedSel]) return cached;
         id view = [cls performSelector:sharedSel];
-        if (!view) return nil;
+        if (!view) return cached;
         SEL imgSel = NSSelectorFromString(@"currentWallpaperImage");
-        if (![view respondsToSelector:imgSel]) return nil;
+        if (![view respondsToSelector:imgSel]) return cached;
         UIImage *img = [view performSelector:imgSel];
-        if (![img isKindOfClass:[UIImage class]]) return nil;
-        return [img axs_dockbeauty_averageColor];
+        if (![img isKindOfClass:[UIImage class]]) return cached;
+        cached = [img axs_dockbeauty_averageColor];
+        return cached;
     }
-    return nil;
+    return cached;
 }
 #pragma clang diagnostic pop
 
@@ -93,6 +100,7 @@ static UIColor *axs_dockbeauty_bubbleColor(AxsDockBeautyConfig *config) {
 @property (nonatomic, assign) CGFloat springPos;   // 弹簧物理：当前偏移
 @property (nonatomic, assign) CGFloat springVel;   // 弹簧物理：速度
 @property (nonatomic, assign) CFTimeInterval lastTick;
+@property (nonatomic, assign) NSUInteger frameCounter;  // 帧计数（发射器参数降频更新）
 @end
 
 // 画一条简易鱼（椭圆身体 + 三角尾），返回 CALayer。
@@ -213,6 +221,9 @@ static CALayer *axs_dockbeauty_makeFish(CGSize size, UIColor *color) {
     }
 
     a.link = [CADisplayLink displayLinkWithTarget:a selector:@selector(tick:)];
+    // 限帧 30fps：浮动/呼吸/流光是慢动画，30fps 足够流畅，CPU 直接降一半以上
+    //（ProMotion 屏默认 120Hz，不限帧等于每秒 120 次全量计算，是发热主因）。
+    a.link.preferredFramesPerSecond = 30;
     [a.link addToRunLoop:[NSRunLoop mainRunLoop] forMode:NSRunLoopCommonModes];
     return a;
 }
@@ -220,10 +231,34 @@ static CALayer *axs_dockbeauty_makeFish(CGSize size, UIColor *color) {
 - (void)tick:(CADisplayLink *)link {
     UIView *dock = self.dockView;
     if (!dock) { [self stop]; return; }
+
+    AxsDockBeautyConfig *config = [AxsDockBeautyConfig axs_dockbeauty_shared];
+    BOOL animFloat = [config axs_dockbeauty_animFloat];
+    BOOL animBreathing = [config axs_dockbeauty_animBreathing];
+    BOOL animRandom = [config axs_dockbeauty_animRandom];
+    BOOL animStream = [config axs_dockbeauty_animStream];
+    BOOL animFirefly = [config axs_dockbeauty_animFirefly];
+    BOOL animFish = [config axs_dockbeauty_animFish];
+    AxsDockBeautyBubbleColorMode bubbleMode = [config axs_dockbeauty_bubbleColorMode];
+    BOOL bubbleOn = (bubbleMode != AxsDockBeautyBubbleColorTransparent)
+                    && [config axs_dockbeauty_bubbleDensity] > 0.01;
+
+    // 全部关闭时什么都不做（也停掉发射器），彻底归零 CPU。
+    if (!animFloat && !animBreathing && !animRandom && !animStream
+        && !animFirefly && !animFish && !bubbleOn) {
+        if (self.bubbles.opacity != 0) self.bubbles.opacity = 0;
+        if (self.fireflies.opacity != 0) self.fireflies.opacity = 0;
+        if (self.streamLayer.opacity != 0) self.streamLayer.opacity = 0;
+        return;
+    }
+
+    // 每帧改 CALayer 属性时禁用隐式动画，避免逐帧创建 CAAnimation 对象。
+    [CATransaction begin];
+    [CATransaction setDisableActions:YES];
+
     self.bubbles.frame = dock.bounds;
     self.fireflies.frame = dock.bounds;
 
-    AxsDockBeautyConfig *config = [AxsDockBeautyConfig axs_dockbeauty_shared];
     id strengthVal = [config axs_dockbeauty_valueForKey:@"value" defaultValue:@(1.0)];
     double strength = [strengthVal isKindOfClass:[NSNumber class]] ? [strengthVal doubleValue] : 1.0;
     double t = CFAbsoluteTimeGetCurrent() - self.start;
@@ -235,7 +270,7 @@ static CALayer *axs_dockbeauty_makeFish(CGSize size, UIColor *color) {
 
     // ── 位置偏移：浮动（振幅/周期可调，可选弹簧物理） + 随机抖动 ──
     CGFloat offsetX = 0, offsetY = 0;
-    if ([config axs_dockbeauty_animFloat]) {
+    if (animFloat) {
         double amp = 12.0 * [config axs_dockbeauty_floatAmplitude] * strength;
         double period = [config axs_dockbeauty_floatPeriod];
         CGFloat target = (CGFloat)(sin(t * 2.0 * M_PI / period) * amp);
@@ -249,7 +284,7 @@ static CALayer *axs_dockbeauty_makeFish(CGSize size, UIColor *color) {
             offsetY += target;
         }
     }
-    if ([config axs_dockbeauty_animRandom]) {
+    if (animRandom) {
         offsetX += (CGFloat)(sin(t * 3.7) * 2.0 + sin(t * 7.3) * 1.5) * strength;
         offsetY += (CGFloat)(cos(t * 4.1) * 2.0 + cos(t * 9.1) * 1.5) * strength;
     }
@@ -258,15 +293,17 @@ static CALayer *axs_dockbeauty_makeFish(CGSize size, UIColor *color) {
 
     // ── 呼吸：sublayerTransform 缩放（view.transform 会被 SpringBoard 重置，这个不会） ──
     CGFloat scale = 1.0;
-    if ([config axs_dockbeauty_animBreathing]) {
+    if (animBreathing) {
         double bAmp = [config axs_dockbeauty_breathingAmplitude];
         double bPeriod = [config axs_dockbeauty_breathingPeriod];
         scale = 1.0 + (CGFloat)(sin(t * 2.0 * M_PI / bPeriod) * bAmp * strength);
+        dock.layer.sublayerTransform = CATransform3DMakeScale(scale, scale, 1.0);
+    } else {
+        dock.layer.sublayerTransform = CATransform3DIdentity;
     }
-    dock.layer.sublayerTransform = CATransform3DMakeScale(scale, scale, 1.0);
 
     // ── 流光：移动光带（长/宽/高/速度/透明度可调） ──
-    if ([config axs_dockbeauty_animStream]) {
+    if (animStream) {
         self.streamLayer.opacity = (float)[config axs_dockbeauty_streamOpacity];
         // 光带尺寸：宽 = Dock宽*stream_width，高 = Dock高*stream_height，垂直居中。
         double wFrac = [config axs_dockbeauty_streamWidth];
@@ -289,22 +326,19 @@ static CALayer *axs_dockbeauty_makeFish(CGSize size, UIColor *color) {
                                     (id)[UIColor clearColor].CGColor];
     } else {
         self.streamLayer.opacity = 0;
-        self.streamLayer.frame = dock.bounds;
     }
 
     // ── 萤火虫 ──
-    if ([config axs_dockbeauty_animFirefly]) {
-        self.fireflies.opacity = 0.8;
-    } else {
-        self.fireflies.opacity = 0;
-    }
+    self.fireflies.opacity = animFirefly ? 0.8f : 0.0f;
 
     // ── 鱼缸 ──
-    BOOL fishOn = [config axs_dockbeauty_animFish];
     NSInteger fishCount = [config axs_dockbeauty_fishCount];
     for (NSInteger i = 0; i < (NSInteger)self.fishLayers.count; i++) {
         CALayer *fish = self.fishLayers[i];
-        if (!fishOn || i >= fishCount) { fish.opacity = 0; continue; }
+        if (!animFish || i >= fishCount) {
+            if (fish.opacity != 0) fish.opacity = 0;
+            continue;
+        }
         fish.opacity = 0.85;
         // 水平游动（正弦往返），垂直轻微摆动。
         double speed = 0.3 + (i % 5) * 0.08;
@@ -317,24 +351,27 @@ static CALayer *axs_dockbeauty_makeFish(CGSize size, UIColor *color) {
         fish.transform = dx < 0 ? CATransform3DMakeScale(-1, 1, 1) : CATransform3DIdentity;
     }
 
-    // ── 气泡 ──
-    AxsDockBeautyBubbleColorMode mode = [config axs_dockbeauty_bubbleColorMode];
-    if (mode == AxsDockBeautyBubbleColorTransparent) {
-        self.bubbles.opacity = 0.0;
-    } else {
-        double density = [config axs_dockbeauty_bubbleDensity];
-        self.bubbles.opacity = (float)fmin(1.0, density);
-        UIColor *c = axs_dockbeauty_bubbleColor(config);
-        CAEmitterCell *cell = self.bubbles.emitterCells.firstObject;
-        if (cell) {
-            cell.color = c.CGColor;
-            cell.birthRate = (float)(8.0 * density * strength);
-            cell.velocity = 40.0 * (float)strength;
-            cell.scale = (float)([config axs_dockbeauty_bubbleSizeMin] / 12.0);
-            cell.scaleRange = (float)(([config axs_dockbeauty_bubbleSizeMax]
-                                       - [config axs_dockbeauty_bubbleSizeMin]) / 12.0);
+    // ── 气泡：仅发射器参数变化时更新（每 10 帧一次，色彩渐变足够平滑） ──
+    if (bubbleOn) {
+        self.bubbles.opacity = (float)fmin(1.0, [config axs_dockbeauty_bubbleDensity]);
+        if ((self.frameCounter++ % 10) == 0) {
+            double density = [config axs_dockbeauty_bubbleDensity];
+            UIColor *c = axs_dockbeauty_bubbleColor(config);
+            CAEmitterCell *cell = self.bubbles.emitterCells.firstObject;
+            if (cell) {
+                cell.color = c.CGColor;
+                cell.birthRate = (float)(8.0 * density * strength);
+                cell.velocity = 40.0 * (float)strength;
+                cell.scale = (float)([config axs_dockbeauty_bubbleSizeMin] / 12.0);
+                cell.scaleRange = (float)(([config axs_dockbeauty_bubbleSizeMax]
+                                           - [config axs_dockbeauty_bubbleSizeMin]) / 12.0);
+            }
         }
+    } else {
+        self.bubbles.opacity = 0.0;
     }
+
+    [CATransaction commit];
 }
 
 - (void)stop {
@@ -481,37 +518,16 @@ static void axs_dockbeauty_applyScheduledPreset(void) {
         // Readers load a snapshot; they never write default preferences.
         [AxsDockBeautyConfig axs_dockbeauty_shared];
 
-        // 【诊断】启动 3 秒后在 key window 画红色边框 2 秒。
-        // 看到红框 = tweak 已注入；看不到 = 注入失败（装错包/未 respring）。
-        // 确认后请删掉这段。
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3.0 * NSEC_PER_SEC)),
-                       dispatch_get_main_queue(), ^{
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-            UIWindow *key = nil;
-            for (UIWindow *w in UIApplication.sharedApplication.windows) {
-                if (w.isKeyWindow) { key = w; break; }
-            }
-#pragma clang diagnostic pop
-            if (key) {
-                key.layer.borderWidth = 5.0;
-                key.layer.borderColor = [UIColor redColor].CGColor;
-                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2.0 * NSEC_PER_SEC)),
-                               dispatch_get_main_queue(), ^{
-                    key.layer.borderWidth = 0.0;
-                });
-            }
-        });
-
         // 兜底重试：即使 applicationDidFinishLaunching 未触发，也要尝试挂载。
-        // 前 60 秒每 2 秒扫一次（Dock 可能晚建 / 锁屏后重建）。
+        // 每 3 秒扫一次，挂上即停（最多 20 次）；Dock 晚建/锁屏重建由 didMoveToWindow 兜底。
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3.0 * NSEC_PER_SEC)),
                        dispatch_get_main_queue(), ^{
             __block NSInteger tries = 0;
-            NSTimer *scan = [NSTimer scheduledTimerWithTimeInterval:2.0 repeats:YES block:^(NSTimer *t) {
+            NSTimer *scan = [NSTimer scheduledTimerWithTimeInterval:3.0 repeats:YES block:^(NSTimer *t) {
+                if (axs_dockbeauty_animators.count > 0) { [t invalidate]; return; }
                 axs_dockbeauty_attachIfNeeded();
-                tries++;
-                if (tries >= 30) { [t invalidate]; }
+                if (axs_dockbeauty_animators.count > 0) { [t invalidate]; return; }
+                if (++tries >= 20) { [t invalidate]; }
             }];
             [NSRunLoop.mainRunLoop addTimer:scan forMode:NSRunLoopCommonModes];
         });
