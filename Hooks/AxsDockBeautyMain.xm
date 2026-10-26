@@ -107,6 +107,7 @@ static UIColor *axs_dockbeauty_streamColor(AxsDockBeautyConfig *config, double t
 @property (nonatomic, assign) CFTimeInterval start;
 @property (nonatomic, strong) CALayer *glowLayer;
 @property (nonatomic, strong) CAEmitterLayer *bubbles;
+@property (nonatomic, assign) CGPoint originalCenter;
 @end
 
 @implementation AxsDockBeautyAnimator
@@ -115,20 +116,20 @@ static UIColor *axs_dockbeauty_streamColor(AxsDockBeautyConfig *config, double t
     AxsDockBeautyAnimator *a = [[self alloc] init];
     a.dockView = dock;
     a.start = CFAbsoluteTimeGetCurrent();
+    a.originalCenter = dock.center;   // 记录原始位置，浮动用 layer.position 不会被 SpringBoard 覆盖
 
     CALayer *glow = [CALayer layer];
-    // 关键修正：frame 必须在 bounds 之内，否则会被 masksToBounds 裁掉而完全不可见。
     glow.frame = dock.bounds;
     glow.cornerRadius = dock.layer.cornerRadius > 0 ? dock.layer.cornerRadius : 28.0;
-    glow.zPosition = 100;            // 浮在 Dock 图标之上，作为霓虹描边
+    glow.zPosition = 100;
     glow.backgroundColor = [UIColor clearColor].CGColor;
     glow.borderWidth = 3.0;
-    glow.borderColor = [UIColor cyanColor].CGColor;   // 初始就有颜色，立即可见
+    glow.borderColor = [UIColor cyanColor].CGColor;
     glow.opacity = 0.95;
     [dock.layer addSublayer:glow];
     a.glowLayer = glow;
 
-    // 气泡粒子层（默认隐藏，开气泡模式时点亮）。
+    // 气泡粒子层。
     CAEmitterLayer *emit = [CAEmitterLayer layer];
     emit.frame = dock.bounds;
     emit.emitterPosition = CGPointMake(CGRectGetMidX(dock.bounds), CGRectGetMaxY(dock.bounds));
@@ -139,6 +140,28 @@ static UIColor *axs_dockbeauty_streamColor(AxsDockBeautyConfig *config, double t
     [dock.layer addSublayer:emit];
     a.bubbles = emit;
 
+    // 生成一个圆形粒子图（气泡 sprite），没有 contents 粒子不可见。
+    UIGraphicsBeginImageContextWithOptions(CGSizeMake(24, 24), NO, 0);
+    CGContextRef ctx = UIGraphicsGetCurrentContext();
+    CGContextSetFillColorWithColor(ctx, [UIColor whiteColor].CGColor);
+    CGContextFillEllipseInRect(ctx, CGRectMake(2, 2, 20, 20));
+    UIImage *bubbleImg = UIGraphicsGetImageFromCurrentImageContext();
+    UIGraphicsEndImageContext();
+
+    CAEmitterCell *cell = [CAEmitterCell emitterCell];
+    cell.name = @"bubble";
+    cell.contents = (__bridge id)bubbleImg.CGImage;
+    cell.birthRate = 8.0;
+    cell.lifetime = 4.0;
+    cell.velocity = 40.0;
+    cell.velocityRange = 20.0;
+    cell.emissionLongitude = -M_PI_2;
+    cell.emissionRange = M_PI_4;
+    cell.scale = 0.5;
+    cell.scaleRange = 0.3;
+    cell.alphaSpeed = -0.25;
+    emit.emitterCells = @[cell];
+
     a.link = [CADisplayLink displayLinkWithTarget:a selector:@selector(tick:)];
     [a.link addToRunLoop:[NSRunLoop mainRunLoop] forMode:NSRunLoopCommonModes];
     return a;
@@ -147,7 +170,6 @@ static UIColor *axs_dockbeauty_streamColor(AxsDockBeautyConfig *config, double t
 - (void)tick:(CADisplayLink *)link {
     UIView *dock = self.dockView;
     if (!dock) { [self stop]; return; }
-    // 同步帧到当前 bounds（Dock 尺寸可能被系统改动）。
     self.glowLayer.frame = dock.bounds;
     self.glowLayer.cornerRadius = dock.layer.cornerRadius > 0 ? dock.layer.cornerRadius : 28.0;
     self.bubbles.frame = dock.bounds;
@@ -157,38 +179,33 @@ static UIColor *axs_dockbeauty_streamColor(AxsDockBeautyConfig *config, double t
     double strength = [strengthVal isKindOfClass:[NSNumber class]] ? [strengthVal doubleValue] : 1.0;
     double t = CFAbsoluteTimeGetCurrent() - self.start;
 
-    // 浮动：明显正弦位移（默认启用即见）。
+    // 浮动：用 layer.position 偏移（SpringBoard 会覆盖 view.transform，但不动 layer.position）。
     CGFloat floatAmp = 12.0 * strength;
-    dock.transform = CGAffineTransformMakeTranslation(0.0, (CGFloat)(sin(t * 1.2) * floatAmp));
+    CGPoint base = self.originalCenter;
+    dock.layer.position = CGPointMake(base.x, base.y + (CGFloat)(sin(t * 1.2) * floatAmp));
 
-    // 流光描边：霓虹边框颜色随时间在两色间往返。
+    // 流光描边：颜色 + 宽度从配置读。
     UIColor *stream = axs_dockbeauty_streamColor(config, t * 0.4);
     self.glowLayer.borderColor = stream.CGColor;
+    self.glowLayer.borderWidth = [config axs_dockbeauty_glowWidth];
 
-    // 气泡粒子：仅单色/彩虹模式（非透明）时显示，颜色随取色逻辑。
+    // 气泡粒子。
     AxsDockBeautyBubbleColorMode mode = [config axs_dockbeauty_bubbleColorMode];
     if (mode == AxsDockBeautyBubbleColorTransparent) {
         self.bubbles.opacity = 0.0;
     } else {
-        self.bubbles.opacity = (float)(fmin(1.0, [config axs_dockbeauty_bubbleDensity]));
+        double density = [config axs_dockbeauty_bubbleDensity];
+        self.bubbles.opacity = (float)fmin(1.0, density);
         UIColor *c = axs_dockbeauty_bubbleColor(config);
         CAEmitterCell *cell = self.bubbles.emitterCells.firstObject;
-        if (!cell) {
-            cell = [CAEmitterCell emitterCell];
-            cell.name = @"bubble";
-            cell.birthRate = 8.0 * (float)[config axs_dockbeauty_bubbleDensity];
-            cell.lifetime = 4.0;
+        if (cell) {
+            cell.color = c.CGColor;
+            cell.birthRate = (float)(8.0 * density * strength);
             cell.velocity = 40.0 * (float)strength;
-            cell.velocityRange = 20.0;
-            cell.emissionLongitude = -M_PI_2;
-            cell.emissionRange = M_PI_4;
             cell.scale = (float)([config axs_dockbeauty_bubbleSizeMin] / 12.0);
             cell.scaleRange = (float)(([config axs_dockbeauty_bubbleSizeMax]
                                        - [config axs_dockbeauty_bubbleSizeMin]) / 12.0);
-            cell.alphaSpeed = -0.25;
-            self.bubbles.emitterCells = @[cell];
         }
-        cell.color = c.CGColor;
     }
 }
 
@@ -265,6 +282,7 @@ static NSArray<NSString *> *axs_dockbeauty_presetKeys(void) {
              @"bubble_hue", @"bubble_saturation", @"bubble_value",
              @"stream_hue", @"stream_hue2",
              @"bubble_size_min", @"bubble_size_max", @"bubble_density",
+             @"glow_width",
              @"wallpaper_tint", @"auto_schedule",
              @"schedule_day", @"schedule_night"];
 }

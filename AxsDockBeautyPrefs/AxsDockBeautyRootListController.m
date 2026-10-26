@@ -106,6 +106,7 @@ static NSArray<NSString *> *axs_dockbeauty_presetKeys(void) {
              @"bubble_hue", @"bubble_saturation", @"bubble_value",
              @"stream_hue", @"stream_hue2",
              @"bubble_size_min", @"bubble_size_max", @"bubble_density",
+             @"glow_width",
              @"wallpaper_tint", @"auto_schedule",
              @"schedule_day", @"schedule_night"];
 }

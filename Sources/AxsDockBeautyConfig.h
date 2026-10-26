@@ -29,6 +29,8 @@ typedef NS_ENUM(NSInteger, AxsDockBeautyBubbleColorMode) {
 - (double)axs_dockbeauty_bubbleSizeMin;
 - (double)axs_dockbeauty_bubbleSizeMax;
 - (double)axs_dockbeauty_bubbleDensity;
+// 描边宽度（pt），缺省 3.0，范围 1–10。
+- (double)axs_dockbeauty_glowWidth;
 // 壁纸取色：开启后单色气泡 / 流光优先用桌面壁纸主色。
 - (BOOL)axs_dockbeauty_wallpaperTint;
 // 按时段自动换预设：白天 [7,19) 用 day 预设，其余用 night 预设。
