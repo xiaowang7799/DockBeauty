@@ -111,10 +111,6 @@ static double axs_dockbeauty_doubleForKey(AxsDockBeautyConfig *self, NSString *k
     return fmax(0.0, fmin(4.0, axs_dockbeauty_doubleForKey(self, @"bubble_density", 1.0)));
 }
 
-- (double)axs_dockbeauty_glowWidth {
-    return fmax(0.0, fmin(10.0, axs_dockbeauty_doubleForKey(self, @"glow_width", 3.0)));
-}
-
 - (BOOL)axs_dockbeauty_animFloat {
     id v = self.snapshot[@"anim_float"];
     return [v isKindOfClass:[NSNumber class]] ? [v boolValue] : YES;

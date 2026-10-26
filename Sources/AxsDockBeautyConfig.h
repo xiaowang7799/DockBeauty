@@ -29,8 +29,6 @@ typedef NS_ENUM(NSInteger, AxsDockBeautyBubbleColorMode) {
 - (double)axs_dockbeauty_bubbleSizeMin;
 - (double)axs_dockbeauty_bubbleSizeMax;
 - (double)axs_dockbeauty_bubbleDensity;
-// 描边宽度（pt），缺省 3.0，范围 1–10；0 = 隐藏描边。
-- (double)axs_dockbeauty_glowWidth;
 // 动画模式开关。
 - (BOOL)axs_dockbeauty_animFloat;
 - (BOOL)axs_dockbeauty_animBreathing;

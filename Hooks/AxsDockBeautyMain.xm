@@ -81,31 +81,10 @@ static UIColor *axs_dockbeauty_bubbleColor(AxsDockBeautyConfig *config) {
     return [UIColor colorWithHue:rainbow saturation:0.85 brightness:1.0 alpha:1.0];
 }
 
-// 流光色相（开启壁纸取色时跟随壁纸），否则用双色往返。
-static UIColor *axs_dockbeauty_streamColor(AxsDockBeautyConfig *config, double t) {
-    if ([config axs_dockbeauty_wallpaperTint]) {
-        UIColor *wp = axs_dockbeauty_wallpaperColor();
-        if (wp) {
-            CGFloat h, s, b;
-            [wp getHue:&h saturation:&s brightness:&b alpha:nil];
-            double hue = h + 0.02 * sin(t * M_PI * 2.0);
-            hue = fmod(hue, 1.0); if (hue < 0.0) hue += 1.0;
-            return [UIColor colorWithHue:hue saturation:fmax(0.5, s) brightness:b alpha:0.9];
-        }
-    }
-    double a = [config axs_dockbeauty_streamHue];
-    double b = [config axs_dockbeauty_streamHue2];
-    double phase = (sin(t * M_PI) + 1.0) / 2.0;
-    double hue = fmod(a + (b - a) * phase, 1.0);
-    if (hue < 0.0) hue += 1.0;
-    return [UIColor colorWithHue:hue saturation:0.9 brightness:1.0 alpha:0.9];
-}
-
 @interface AxsDockBeautyAnimator : NSObject
 @property (nonatomic, weak) UIView *dockView;
 @property (nonatomic, strong) CADisplayLink *link;
 @property (nonatomic, assign) CFTimeInterval start;
-@property (nonatomic, strong) CALayer *glowLayer;
 @property (nonatomic, strong) CAEmitterLayer *bubbles;
 @property (nonatomic, strong) CAEmitterLayer *fireflies;
 @property (nonatomic, strong) CAGradientLayer *streamLayer;
@@ -145,21 +124,10 @@ static CALayer *axs_dockbeauty_makeFish(CGSize size, UIColor *color) {
     a.start = CFAbsoluteTimeGetCurrent();
     a.originalCenter = dock.center;
 
-    // 描边层（glow_width=0 时隐藏）。
-    CALayer *glow = [CALayer layer];
-    glow.frame = dock.bounds;
-    glow.cornerRadius = dock.layer.cornerRadius > 0 ? dock.layer.cornerRadius : 28.0;
-    glow.zPosition = 100;
-    glow.backgroundColor = [UIColor clearColor].CGColor;
-    glow.borderWidth = 0;
-    glow.opacity = 0.95;
-    [dock.layer addSublayer:glow];
-    a.glowLayer = glow;
-
     // 流光渐变层。
     CAGradientLayer *stream = [CAGradientLayer layer];
     stream.frame = dock.bounds;
-    stream.cornerRadius = glow.cornerRadius;
+    stream.cornerRadius = dock.layer.cornerRadius > 0 ? dock.layer.cornerRadius : 28.0;
     stream.startPoint = CGPointMake(0, 0.5);
     stream.endPoint = CGPointMake(1, 0.5);
     stream.colors = @[(id)[UIColor cyanColor].CGColor, (id)[UIColor magentaColor].CGColor];
@@ -243,8 +211,6 @@ static CALayer *axs_dockbeauty_makeFish(CGSize size, UIColor *color) {
 - (void)tick:(CADisplayLink *)link {
     UIView *dock = self.dockView;
     if (!dock) { [self stop]; return; }
-    self.glowLayer.frame = dock.bounds;
-    self.glowLayer.cornerRadius = dock.layer.cornerRadius > 0 ? dock.layer.cornerRadius : 28.0;
     self.bubbles.frame = dock.bounds;
     self.fireflies.frame = dock.bounds;
     self.streamLayer.frame = dock.bounds;
@@ -272,18 +238,6 @@ static CALayer *axs_dockbeauty_makeFish(CGSize size, UIColor *color) {
         scale = 1.0 + (CGFloat)(sin(t * 0.8) * 0.06 * strength);
     }
     dock.layer.transform = CATransform3DMakeScale(scale, scale, 1.0);
-
-    // ── 描边（glow_width>0 时显示） ──
-    double gw = [config axs_dockbeauty_glowWidth];
-    if (gw > 0.1) {
-        self.glowLayer.borderWidth = gw;
-        UIColor *stream = axs_dockbeauty_streamColor(config, t * 0.4);
-        self.glowLayer.borderColor = stream.CGColor;
-        self.glowLayer.opacity = 0.95;
-    } else {
-        self.glowLayer.borderWidth = 0;
-        self.glowLayer.opacity = 0;
-    }
 
     // ── 流光渐变 ──
     if ([config axs_dockbeauty_animStream]) {
@@ -345,7 +299,6 @@ static CALayer *axs_dockbeauty_makeFish(CGSize size, UIColor *color) {
 - (void)stop {
     [self.link invalidate];
     self.link = nil;
-    [self.glowLayer removeFromSuperlayer];
     [self.bubbles removeFromSuperlayer];
     [self.fireflies removeFromSuperlayer];
     [self.streamLayer removeFromSuperlayer];
@@ -418,7 +371,6 @@ static NSArray<NSString *> *axs_dockbeauty_presetKeys(void) {
              @"bubble_hue", @"bubble_saturation", @"bubble_value",
              @"stream_hue", @"stream_hue2",
              @"bubble_size_min", @"bubble_size_max", @"bubble_density",
-             @"glow_width",
              @"anim_float", @"anim_breathing", @"anim_random",
              @"anim_stream", @"anim_firefly", @"anim_fish", @"fish_count",
              @"wallpaper_tint", @"auto_schedule",

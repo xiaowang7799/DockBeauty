@@ -111,7 +111,6 @@ static NSArray<NSString *> *axs_dockbeauty_presetKeys(void) {
              @"bubble_hue", @"bubble_saturation", @"bubble_value",
              @"stream_hue", @"stream_hue2",
              @"bubble_size_min", @"bubble_size_max", @"bubble_density",
-             @"glow_width",
              @"anim_float", @"anim_breathing", @"anim_random",
              @"anim_stream", @"anim_firefly", @"anim_fish", @"fish_count",
              @"wallpaper_tint", @"auto_schedule",
@@ -198,7 +197,6 @@ static NSArray<NSString *> *axs_dockbeauty_presetKeys(void) {
 
 - (void)axs_dockbeauty_applyCyberPreset:(id)sender {
     NSDictionary *settings = @{
-        @"glow_width": @0,
         @"anim_float": @YES,
         @"anim_breathing": @YES,
         @"anim_random": @YES,
@@ -222,7 +220,6 @@ static NSArray<NSString *> *axs_dockbeauty_presetKeys(void) {
 
 - (void)axs_dockbeauty_applyAquariumPreset:(id)sender {
     NSDictionary *settings = @{
-        @"glow_width": @0,
         @"anim_float": @NO,
         @"anim_breathing": @NO,
         @"anim_random": @NO,
