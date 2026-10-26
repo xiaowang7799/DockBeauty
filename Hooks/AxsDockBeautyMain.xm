@@ -121,7 +121,6 @@ static UIColor *axs_dockbeauty_streamColor(AxsDockBeautyConfig *config, double t
     glow.backgroundColor = [UIColor clearColor].CGColor;
     glow.borderWidth = 3.0;          // 细描边，不挡图标
     glow.opacity = 0.9;
-    glow.compositingFilter = @"screen";
     [dock.layer addSublayer:glow];
     a.glowLayer = glow;
 
