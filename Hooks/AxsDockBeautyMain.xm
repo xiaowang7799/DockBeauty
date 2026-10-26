@@ -5,9 +5,11 @@
 #import "AxsDockBeautyPrivate.h"
 
 // ── Dock 美化版：浮动 + 气泡 / 流光配色 ──────────────────────────────────────
-// 基础模板只给了一个空 %hook 骨架；这里补上真实但克制的动效，并把「美化版」
-// 新增的单色气泡取色、流光配色接到渲染上。Dock 的取用方式随 iOS 版本变化，
-// 所以全程做 nil / 类存在性检查，拿不到视图就静默退出，绝不强改。
+// Dock 的取用方式随 iOS 版本变化，所以用三条路确保挂上：
+//   1) 直接 %hook SBMainDockView / SBDockView（最可靠）；
+//   2) 遍历所有 UIWindow 找 *DockView（兜底）；
+//   3) 定时重试（Dock 可能晚建 / 锁屏后重建）。
+// 拿不到视图就静默退出，绝不强改。
 
 // UIImage 平均色（壁纸取色用，安全实现，取不到返回 nil）。
 @interface UIImage (AxsDockBeautyAverage)
@@ -115,12 +117,14 @@ static UIColor *axs_dockbeauty_streamColor(AxsDockBeautyConfig *config, double t
     a.start = CFAbsoluteTimeGetCurrent();
 
     CALayer *glow = [CALayer layer];
-    glow.cornerRadius = 28.0;
-    glow.frame = CGRectInset(dock.bounds, -6.0, -6.0);
-    glow.zPosition = 100;            // 浮在 Dock 之上，作为霓虹描边
+    // 关键修正：frame 必须在 bounds 之内，否则会被 masksToBounds 裁掉而完全不可见。
+    glow.frame = dock.bounds;
+    glow.cornerRadius = dock.layer.cornerRadius > 0 ? dock.layer.cornerRadius : 28.0;
+    glow.zPosition = 100;            // 浮在 Dock 图标之上，作为霓虹描边
     glow.backgroundColor = [UIColor clearColor].CGColor;
-    glow.borderWidth = 3.0;          // 细描边，不挡图标
-    glow.opacity = 0.9;
+    glow.borderWidth = 3.0;
+    glow.borderColor = [UIColor cyanColor].CGColor;   // 初始就有颜色，立即可见
+    glow.opacity = 0.95;
     [dock.layer addSublayer:glow];
     a.glowLayer = glow;
 
@@ -143,13 +147,18 @@ static UIColor *axs_dockbeauty_streamColor(AxsDockBeautyConfig *config, double t
 - (void)tick:(CADisplayLink *)link {
     UIView *dock = self.dockView;
     if (!dock) { [self stop]; return; }
+    // 同步帧到当前 bounds（Dock 尺寸可能被系统改动）。
+    self.glowLayer.frame = dock.bounds;
+    self.glowLayer.cornerRadius = dock.layer.cornerRadius > 0 ? dock.layer.cornerRadius : 28.0;
+    self.bubbles.frame = dock.bounds;
+
     AxsDockBeautyConfig *config = [AxsDockBeautyConfig axs_dockbeauty_shared];
     id strengthVal = [config axs_dockbeauty_valueForKey:@"value" defaultValue:@(1.0)];
     double strength = [strengthVal isKindOfClass:[NSNumber class]] ? [strengthVal doubleValue] : 1.0;
     double t = CFAbsoluteTimeGetCurrent() - self.start;
 
-    // 浮动：更明显的正弦位移（默认启用即见）。
-    CGFloat floatAmp = 10.0 * strength;
+    // 浮动：明显正弦位移（默认启用即见）。
+    CGFloat floatAmp = 12.0 * strength;
     dock.transform = CGAffineTransformMakeTranslation(0.0, (CGFloat)(sin(t * 1.2) * floatAmp));
 
     // 流光描边：霓虹边框颜色随时间在两色间往返。
@@ -194,40 +203,61 @@ static UIColor *axs_dockbeauty_streamColor(AxsDockBeautyConfig *config, double t
 @class AxsDockBeautyAnimator;
 static NSMutableArray<AxsDockBeautyAnimator *> *axs_dockbeauty_animators;
 
-// 递归遍历视图树：遇到 *DockView 就挂载动画（已挂载的跳过）。
-static void axs_dockbeauty_walk(UIView *view, AxsDockBeautyConfig *config) {
-    for (UIView *sub in view.subviews) {
-        NSString *cls = NSStringFromClass([sub class]);
-        if ([cls hasSuffix:@"DockView"]) {
-            BOOL already = NO;
-            for (AxsDockBeautyAnimator *a in axs_dockbeauty_animators) {
-                if (a.dockView == sub) { already = YES; break; }
-            }
-            if (!already) {
-                [axs_dockbeauty_animators addObject:[AxsDockBeautyAnimator animatorForDock:sub config:config]];
-            }
-        }
-        axs_dockbeauty_walk(sub, config);
-    }
-}
-
-static void axs_dockbeauty_attachIfNeeded(void) {
+// 给指定 Dock 视图挂动画（已挂过的跳过；顺带清理已失效的动画器）。
+static void axs_dockbeauty_attachToDock(UIView *dock) {
+    if (!dock) return;
     AxsDockBeautyConfig *config = [AxsDockBeautyConfig axs_dockbeauty_shared];
     if (![config axs_dockbeauty_isEnabled]) return;
     if (axs_dockbeauty_animators == nil) axs_dockbeauty_animators = [NSMutableArray array];
-    // 找到 SBMainDockView / SBDockView（类名随版本变化，按后缀匹配）。
-    UIWindow *key = nil;
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-    for (UIWindow *w in [UIApplication sharedApplication].windows) {
-#pragma clang diagnostic pop
-        if (w.isKeyWindow) { key = w; break; }
+
+    // 清理已失效（dockView 被释放）的动画器。
+    NSMutableArray<AxsDockBeautyAnimator *> *dead = [NSMutableArray array];
+    for (AxsDockBeautyAnimator *a in axs_dockbeauty_animators) {
+        if (a.dockView == nil) { [dead addObject:a]; continue; }
+        if (a.dockView == dock) return;    // 已挂过
     }
-    if (!key) return;
-    axs_dockbeauty_walk(key, config);
+    if (dead.count) [axs_dockbeauty_animators removeObjectsInArray:dead];
+
+    [axs_dockbeauty_animators addObject:[AxsDockBeautyAnimator animatorForDock:dock config:config]];
 }
 
-// 按时段自动换预设：白天 [7,19) 用 day 预设，否则 night 预设（名字对应用户保存的预设）。
+// 递归遍历视图树：遇到 *DockView 就挂载动画。
+static void axs_dockbeauty_walk(UIView *view) {
+    for (UIView *sub in view.subviews) {
+        NSString *cls = NSStringFromClass([sub class]);
+        if ([cls hasSuffix:@"DockView"]) {
+            axs_dockbeauty_attachToDock(sub);
+        }
+        axs_dockbeauty_walk(sub);
+    }
+}
+
+// 遍历所有窗口（不只 key window——锁屏时 key window 不含 Dock）。
+static void axs_dockbeauty_attachIfNeeded(void) {
+    if (axs_dockbeauty_animators == nil) axs_dockbeauty_animators = [NSMutableArray array];
+
+    NSMutableArray<UIWindow *> *all = [NSMutableArray array];
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    NSArray<UIWindow *> *legacy = [UIApplication sharedApplication].windows;
+#pragma clang diagnostic pop
+    if (legacy.count) [all addObjectsFromArray:legacy];
+
+    // iOS 13+ 场景窗口（legacy.windows 可能为空）。
+    if (@available(iOS 13.0, *)) {
+        for (UIScene *scene in UIApplication.sharedApplication.connectedScenes) {
+            if ([scene isKindOfClass:[UIWindowScene class]]) {
+                [all addObjectsFromArray:((UIWindowScene *)scene).windows];
+            }
+        }
+    }
+
+    for (UIWindow *w in all) {
+        axs_dockbeauty_walk(w);
+    }
+}
+
+// ── 按时段自动换预设 ─────────────────────────────────────────────────────────
 // 找不到对应名字的预设就静默跳过；不改写 enabled 等其它键。
 static NSArray<NSString *> *axs_dockbeauty_presetKeys(void) {
     return @[@"value", @"bubble_color_mode",
@@ -263,21 +293,31 @@ static void axs_dockbeauty_applyScheduledPreset(void) {
     }
 }
 
+// ── 路 1：直接 hook Dock 类（最可靠） ───────────────────────────────────────
+%hook SBMainDockView
+- (void)didMoveToWindow {
+    %orig;
+    axs_dockbeauty_attachToDock(self);
+}
+%end
+
+%hook SBDockView
+- (void)didMoveToWindow {
+    %orig;
+    axs_dockbeauty_attachToDock(self);
+}
+%end
+
+// ── 路 2+3：启动后定时重试遍历所有窗口 ─────────────────────────────────────
 %hook SpringBoard
 
 - (void)applicationDidFinishLaunching:(id)application {
     %orig;
-    // 延迟到界面就绪后再遍历视图树。
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2.0 * NSEC_PER_SEC)),
-                   dispatch_get_main_queue(), ^{
+    axs_dockbeauty_applyScheduledPreset();
+    NSTimer *hourly = [NSTimer scheduledTimerWithTimeInterval:3600.0 repeats:YES block:^(NSTimer *t) {
         axs_dockbeauty_applyScheduledPreset();
-        axs_dockbeauty_attachIfNeeded();
-        // 每小时检查一次时段预设（轻量，仅写配置，不注销）。
-        NSTimer *timer = [NSTimer scheduledTimerWithTimeInterval:3600.0 repeats:YES block:^(NSTimer *t) {
-            axs_dockbeauty_applyScheduledPreset();
-        }];
-        [NSRunLoop.mainRunLoop addTimer:timer forMode:NSRunLoopCommonModes];
-    });
+    }];
+    [NSRunLoop.mainRunLoop addTimer:hourly forMode:NSRunLoopCommonModes];
 }
 
 %end
@@ -286,5 +326,40 @@ static void axs_dockbeauty_applyScheduledPreset(void) {
     @autoreleasepool {
         // Readers load a snapshot; they never write default preferences.
         [AxsDockBeautyConfig axs_dockbeauty_shared];
+
+        // 【诊断】启动 3 秒后在 key window 画红色边框 2 秒。
+        // 看到红框 = tweak 已注入；看不到 = 注入失败（装错包/未 respring）。
+        // 确认后请删掉这段。
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3.0 * NSEC_PER_SEC)),
+                       dispatch_get_main_queue(), ^{
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+            UIWindow *key = nil;
+            for (UIWindow *w in UIApplication.sharedApplication.windows) {
+                if (w.isKeyWindow) { key = w; break; }
+            }
+#pragma clang diagnostic pop
+            if (key) {
+                key.layer.borderWidth = 5.0;
+                key.layer.borderColor = [UIColor redColor].CGColor;
+                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2.0 * NSEC_PER_SEC)),
+                               dispatch_get_main_queue(), ^{
+                    key.layer.borderWidth = 0.0;
+                });
+            }
+        });
+
+        // 兜底重试：即使 applicationDidFinishLaunching 未触发，也要尝试挂载。
+        // 前 60 秒每 2 秒扫一次（Dock 可能晚建 / 锁屏后重建）。
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3.0 * NSEC_PER_SEC)),
+                       dispatch_get_main_queue(), ^{
+            __block NSInteger tries = 0;
+            NSTimer *scan = [NSTimer scheduledTimerWithTimeInterval:2.0 repeats:YES block:^(NSTimer *t) {
+                axs_dockbeauty_attachIfNeeded();
+                tries++;
+                if (tries >= 30) { [t invalidate]; }
+            }];
+            [NSRunLoop.mainRunLoop addTimer:scan forMode:NSRunLoopCommonModes];
+        });
     }
 }

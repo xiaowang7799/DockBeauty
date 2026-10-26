@@ -14,7 +14,7 @@
 			<key>label</key><string>启用插件</string>
 			<key>key</key><string>enabled</string>
 			<key>defaults</key><string>com.axs.dockbeauty</string>
-			<key>default</key><false/>
+			<key>default</key><true/>
 		</dict>
 		<dict>
 			<key>cell</key><string>PSTitleValueCell</string>
