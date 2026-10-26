@@ -1,0 +1,11 @@
+Package: com.axs.dockbeauty
+Name: Dock美化
+Version: 5.2.0
+Architecture: iphoneos-arm
+Description: Dock浮动美化版：单色气泡取色、流光配色、可保存自定义预设、气泡粒子、壁纸取色与按时段自动换预设
+Maintainer: YOUR_NAME
+Author: YOUR_NAME
+Section: Tweaks
+Depends: mobilesubstrate, preferenceloader
+Icon: https://raw.githubusercontent.com/YOUR_GITHUB/DockBeauty/main/icon.png
+Sileodepiction: https://github.com/YOUR_GITHUB/DockBeauty

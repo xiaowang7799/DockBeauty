@@ -1,0 +1,186 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>title</key><string>Dock美化</string>
+	<key>items</key>
+	<array>
+		<dict>
+			<key>cell</key><string>PSGroupCell</string>
+			<key>label</key><string>基本设置</string>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSSwitchCell</string>
+			<key>label</key><string>启用插件</string>
+			<key>key</key><string>enabled</string>
+			<key>defaults</key><string>com.axs.dockbeauty</string>
+			<key>default</key><false/>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSTitleValueCell</string>
+			<key>cellClass</key><string>AxsDockBeautySliderCell</string>
+			<key>label</key><string>动效强度</string>
+			<key>key</key><string>value</string>
+			<key>defaults</key><string>com.axs.dockbeauty</string>
+			<key>default</key><real>1.0</real>
+			<key>min</key><real>0.0</real>
+			<key>max</key><real>2.0</real>
+		</dict>
+
+		<dict>
+			<key>cell</key><string>PSGroupCell</string>
+			<key>label</key><string>气泡配色</string>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSSegmentCell</string>
+			<key>label</key><string>气泡颜色</string>
+			<key>key</key><string>bubble_color_mode</string>
+			<key>defaults</key><string>com.axs.dockbeauty</string>
+			<key>default</key><integer>0</integer>
+			<key>validValues</key>
+			<array><integer>0</integer><integer>1</integer><integer>2</integer></array>
+			<key>validTitles</key>
+			<array><string>彩虹</string><string>单色</string><string>透明</string></array>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSTitleValueCell</string>
+			<key>cellClass</key><string>AxsDockBeautySliderCell</string>
+			<key>label</key><string>单色气泡 — 色相</string>
+			<key>key</key><string>bubble_hue</string>
+			<key>defaults</key><string>com.axs.dockbeauty</string>
+			<key>default</key><real>0.58</real>
+			<key>min</key><real>0.0</real>
+			<key>max</key><real>1.0</real>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSTitleValueCell</string>
+			<key>cellClass</key><string>AxsDockBeautySliderCell</string>
+			<key>label</key><string>单色气泡 — 饱和度</string>
+			<key>key</key><string>bubble_saturation</string>
+			<key>defaults</key><string>com.axs.dockbeauty</string>
+			<key>default</key><real>0.85</real>
+			<key>min</key><real>0.0</real>
+			<key>max</key><real>1.0</real>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSTitleValueCell</string>
+			<key>cellClass</key><string>AxsDockBeautySliderCell</string>
+			<key>label</key><string>单色气泡 — 明度</string>
+			<key>key</key><string>bubble_value</string>
+			<key>defaults</key><string>com.axs.dockbeauty</string>
+			<key>default</key><real>1.0</real>
+			<key>min</key><real>0.0</real>
+			<key>max</key><real>1.0</real>
+		</dict>
+
+		<dict>
+			<key>cell</key><string>PSGroupCell</string>
+			<key>label</key><string>流光配色</string>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSTitleValueCell</string>
+			<key>cellClass</key><string>AxsDockBeautySliderCell</string>
+			<key>label</key><string>流光主色 — 色相</string>
+			<key>key</key><string>stream_hue</string>
+			<key>defaults</key><string>com.axs.dockbeauty</string>
+			<key>default</key><real>0.83</real>
+			<key>min</key><real>0.0</real>
+			<key>max</key><real>1.0</real>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSTitleValueCell</string>
+			<key>cellClass</key><string>AxsDockBeautySliderCell</string>
+			<key>label</key><string>流光副色 — 色相</string>
+			<key>key</key><string>stream_hue2</string>
+			<key>defaults</key><string>com.axs.dockbeauty</string>
+			<key>default</key><real>0.52</real>
+			<key>min</key><real>0.0</real>
+			<key>max</key><real>1.0</real>
+		</dict>
+
+		<dict>
+			<key>cell</key><string>PSGroupCell</string>
+			<key>label</key><string>气泡粒子</string>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSTitleValueCell</string>
+			<key>cellClass</key><string>AxsDockBeautySliderCell</string>
+			<key>label</key><string>气泡最小尺寸</string>
+			<key>key</key><string>bubble_size_min</string>
+			<key>defaults</key><string>com.axs.dockbeauty</string>
+			<key>default</key><real>6.0</real>
+			<key>min</key><real>1.0</real>
+			<key>max</key><real>40.0</real>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSTitleValueCell</string>
+			<key>cellClass</key><string>AxsDockBeautySliderCell</string>
+			<key>label</key><string>气泡最大尺寸</string>
+			<key>key</key><string>bubble_size_max</string>
+			<key>defaults</key><string>com.axs.dockbeauty</string>
+			<key>default</key><real>12.0</real>
+			<key>min</key><real>1.0</real>
+			<key>max</key><real>40.0</real>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSTitleValueCell</string>
+			<key>cellClass</key><string>AxsDockBeautySliderCell</string>
+			<key>label</key><string>气泡密度</string>
+			<key>key</key><string>bubble_density</string>
+			<key>defaults</key><string>com.axs.dockbeauty</string>
+			<key>default</key><real>1.0</real>
+			<key>min</key><real>0.0</real>
+			<key>max</key><real>4.0</real>
+		</dict>
+
+		<dict>
+			<key>cell</key><string>PSGroupCell</string>
+			<key>label</key><string>智能配色与时段</string>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSSwitchCell</string>
+			<key>label</key><string>壁纸取色</string>
+			<key>key</key><string>wallpaper_tint</string>
+			<key>defaults</key><string>com.axs.dockbeauty</string>
+			<key>default</key><false/>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSSwitchCell</string>
+			<key>label</key><string>按时段自动换预设</string>
+			<key>key</key><string>auto_schedule</string>
+			<key>defaults</key><string>com.axs.dockbeauty</string>
+			<key>default</key><false/>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSTextFieldCell</string>
+			<key>label</key><string>白天预设名</string>
+			<key>key</key><string>schedule_day</string>
+			<key>defaults</key><string>com.axs.dockbeauty</string>
+			<key>default</key><string></string>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSTextFieldCell</string>
+			<key>label</key><string>夜间预设名</string>
+			<key>key</key><string>schedule_night</string>
+			<key>defaults</key><string>com.axs.dockbeauty</string>
+			<key>default</key><string></string>
+		</dict>
+
+		<dict>
+			<key>cell</key><string>PSGroupCell</string>
+			<key>label</key><string>自定义预设</string>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSButtonCell</string>
+			<key>label</key><string>保存当前为预设</string>
+			<key>action</key><string>axs_dockbeauty_savePreset:</string>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSButtonCell</string>
+			<key>label</key><string>应用 / 删除已存预设</string>
+			<key>action</key><string>axs_dockbeauty_managePresets:</string>
+		</dict>
+
+	</array>
+</dict>
+</plist>

@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "name": "DockBeauty",
+  "id": "dockbeauty",
+  "display_name": "Dock美化",
+  "class_prefix": "AxsDockBeauty",
+  "symbol_prefix": "axs_dockbeauty",
+  "package": "com.axs.dockbeauty",
+  "bundle": "com.apple.springboard",
+  "sdk_version": "16.5",
+  "minimum_ios": "14.0",
+  "preferences": true,
+  "slider": true,
+  "github_actions": false
+}

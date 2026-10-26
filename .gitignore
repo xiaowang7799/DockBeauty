@@ -1,0 +1,10 @@
+# Theos build artifacts
+packages/
+.obj/
+.build/
+*.deb
+.theos/
+
+# OS / editor
+.DS_Store
+*.swp
