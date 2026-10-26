@@ -117,8 +117,11 @@ static UIColor *axs_dockbeauty_streamColor(AxsDockBeautyConfig *config, double t
     CALayer *glow = [CALayer layer];
     glow.cornerRadius = 28.0;
     glow.frame = CGRectInset(dock.bounds, -6.0, -6.0);
-    glow.zPosition = -1;
-    glow.opacity = 0.55;
+    glow.zPosition = 100;            // 浮在 Dock 之上，作为霓虹描边
+    glow.backgroundColor = [UIColor clearColor].CGColor;
+    glow.borderWidth = 3.0;          // 细描边，不挡图标
+    glow.opacity = 0.9;
+    glow.compositingFilter = @"screen";
     [dock.layer addSublayer:glow];
     a.glowLayer = glow;
 
@@ -146,12 +149,13 @@ static UIColor *axs_dockbeauty_streamColor(AxsDockBeautyConfig *config, double t
     double strength = [strengthVal isKindOfClass:[NSNumber class]] ? [strengthVal doubleValue] : 1.0;
     double t = CFAbsoluteTimeGetCurrent() - self.start;
 
-    // 浮动：小幅正弦位移。
-    CGFloat floatAmp = 4.0 * strength;
+    // 浮动：更明显的正弦位移（默认启用即见）。
+    CGFloat floatAmp = 10.0 * strength;
     dock.transform = CGAffineTransformMakeTranslation(0.0, (CGFloat)(sin(t * 1.2) * floatAmp));
 
-    // 流光描边：背景层颜色随时间在两色间往返。
-    self.glowLayer.backgroundColor = axs_dockbeauty_streamColor(config, t * 0.4).CGColor;
+    // 流光描边：霓虹边框颜色随时间在两色间往返。
+    UIColor *stream = axs_dockbeauty_streamColor(config, t * 0.4);
+    self.glowLayer.borderColor = stream.CGColor;
 
     // 气泡粒子：仅单色/彩虹模式（非透明）时显示，颜色随取色逻辑。
     AxsDockBeautyBubbleColorMode mode = [config axs_dockbeauty_bubbleColorMode];

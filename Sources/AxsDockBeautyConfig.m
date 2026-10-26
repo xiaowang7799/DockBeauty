@@ -132,8 +132,8 @@ static double axs_dockbeauty_doubleForKey(AxsDockBeautyConfig *self, NSString *k
 }
 
 - (BOOL)axs_dockbeauty_isEnabled {
-    id value = [self axs_dockbeauty_valueForKey:@"enabled" defaultValue:@(NO)];
-    return [value isKindOfClass:[NSNumber class]] ? [value boolValue] : NO;
+    id value = [self axs_dockbeauty_valueForKey:@"enabled" defaultValue:@(YES)];
+    return [value isKindOfClass:[NSNumber class]] ? [value boolValue] : YES;
 }
 
 - (void)dealloc {

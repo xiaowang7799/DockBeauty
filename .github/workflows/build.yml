@@ -25,7 +25,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # - build_variant: rootful
+          - build_variant: rootful
           - build_variant: rootless
           # - build_variant: roothide
 
