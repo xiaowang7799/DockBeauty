@@ -353,14 +353,6 @@ static CALayer *axs_dockbeauty_makeFish(CGSize size, UIColor *color) {
 }
 @end
 
-- (void)stop {
-    [self.link invalidate];
-    self.link = nil;
-    [self.glowLayer removeFromSuperlayer];
-    [self.bubbles removeFromSuperlayer];
-}
-@end
-
 @class AxsDockBeautyAnimator;
 static NSMutableArray<AxsDockBeautyAnimator *> *axs_dockbeauty_animators;
 
