@@ -134,7 +134,7 @@ static UIImage *axs_dockbeauty_emojiImage(NSString *emoji, CGFloat size) {
     return img;
 }
 
-// 节日彩蛋：命中节日返回主题 emoji（🎃 万圣 10/25-11/2、🎄 圣诞 12/20-28、🧧 春节 1/21-2/20、❤️ 情人节 2/14）。
+// 节日 emoji（🎃 万圣 10/25-11/2、🎄 圣诞 12/20-28、🧧 春节 1/21-2/20、❤️ 情人节 2/14）。
 static NSString *axs_dockbeauty_holidayEmoji(void) {
     NSDateComponents *c = [[NSCalendar currentCalendar]
         components:(NSCalendarUnitMonth | NSCalendarUnitDay) fromDate:[NSDate date]];
@@ -144,6 +144,15 @@ static NSString *axs_dockbeauty_holidayEmoji(void) {
     if ((m == 1 && d >= 21) || (m == 2 && d <= 20)) return @"🧧";
     if (m == 2 && d == 14) return @"❤️";
     return nil;
+}
+
+// 季节 emoji（冬 ❄️ / 春 🌸 / 夏 ⭐ / 秋 🍂）。
+static NSString *axs_dockbeauty_seasonEmoji(void) {
+    NSInteger m = [[NSCalendar currentCalendar] component:NSCalendarUnitMonth fromDate:[NSDate date]];
+    if (m == 12 || m <= 2) return @"❄️";
+    if (m <= 5) return @"🌸";
+    if (m <= 8) return @"⭐";
+    return @"🍂";
 }
 
 @interface AxsDockBeautyAnimator : NSObject
@@ -537,24 +546,26 @@ static CALayer *axs_dockbeauty_makeFish(CGSize size, UIColor *color) {
         self.bubbles.opacity = 0.0;
     }
 
-    // ── 季节粒子：雪/花瓣/落叶/星星/爱心飘落（节日彩蛋自动换主题） ──
+    // ── 季节粒子：雪/花瓣/落叶/星星/爱心飘落；style=6 自动（节日优先，否则按季节） ──
     if (particleStyle > 0) {
         self.seasonEmitter.frame = dock.bounds;
         self.seasonEmitter.emitterPosition = CGPointMake(CGRectGetMidX(dock.bounds), -10.0);
         self.seasonEmitter.emitterSize = CGSizeMake(dock.bounds.size.width, 4.0);
         self.seasonEmitter.opacity = 0.85;
-        // 节日彩蛋：命中节日用节日 emoji。
         NSString *emoji = nil;
-        if ([config axs_dockbeauty_holidayEgg]) {
-            emoji = axs_dockbeauty_holidayEmoji();
+        NSInteger styleKey = particleStyle;
+        if (particleStyle == 6) {
+            // 自动模式：节日主题优先，否则按季节。key 用日期（同一天不重复重建 sprite）。
+            emoji = axs_dockbeauty_holidayEmoji() ?: axs_dockbeauty_seasonEmoji();
+            NSDateComponents *c = [[NSCalendar currentCalendar]
+                components:(NSCalendarUnitMonth | NSCalendarUnitDay) fromDate:[NSDate date]];
+            styleKey = 1000 + c.month * 31 + c.day;
+        } else {
+            NSArray<NSString *> *emojis = @[@"", @"❄️", @"🌸", @"🍂", @"⭐", @"❤️"];
+            emoji = emojis[(NSUInteger)particleStyle < emojis.count ? (NSUInteger)particleStyle : 1];
         }
-        NSInteger styleKey = emoji ? (100 + particleStyle) : particleStyle;
         if (self.lastParticleStyle != styleKey) {
             self.lastParticleStyle = styleKey;
-            if (!emoji) {
-                NSArray<NSString *> *emojis = @[@"", @"❄️", @"🌸", @"🍂", @"⭐", @"❤️"];
-                emoji = emojis[(NSUInteger)particleStyle < emojis.count ? (NSUInteger)particleStyle : 1];
-            }
             UIImage *sprite = axs_dockbeauty_emojiImage(emoji, 24.0);
             CAEmitterCell *cell = self.seasonEmitter.emitterCells.firstObject;
             if (!cell) {
@@ -718,7 +729,7 @@ static NSArray<NSString *> *axs_dockbeauty_presetKeys(void) {
              @"icon_scale", @"icon_glow", @"icon_glow_intensity",
              @"tap_ripple", @"tap_bounce",
              @"particle_style",
-             @"low_power_guard", @"reduce_motion_guard", @"holiday_egg",
+             @"low_power_guard", @"reduce_motion_guard",
              @"wallpaper_tint", @"auto_schedule",
              @"schedule_day", @"schedule_night"];
 }

@@ -291,6 +291,7 @@
 		<dict>
 			<key>cell</key><string>PSGroupCell</string>
 			<key>label</key><string>季节粒子（从上方飘落）</string>
+			<key>footerText</key><string>「自动」= 节日优先（🎃万圣/🎄圣诞/🧧春节/❤️情人节），否则按季节（冬❄️/春🌸/夏⭐/秋🍂）。</string>
 		</dict>
 		<dict>
 			<key>cell</key><string>PSSegmentCell</string>
@@ -306,22 +307,23 @@
 				<integer>3</integer>
 				<integer>4</integer>
 				<integer>5</integer>
+				<integer>6</integer>
 			</array>
 			<key>validTitles</key>
 			<array>
 				<string>关</string>
-				<string>❄️雪</string>
-				<string>🌸樱</string>
-				<string>🍂叶</string>
-				<string>⭐星</string>
-				<string>❤️心</string>
+				<string>❄️</string>
+				<string>🌸</string>
+				<string>🍂</string>
+				<string>⭐</string>
+				<string>❤️</string>
+				<string>自动</string>
 			</array>
 		</dict>
 
 		<dict>
 			<key>cell</key><string>PSGroupCell</string>
 			<key>label</key><string>系统保护</string>
-			<key>footerText</key><string>节日彩蛋开启时，万圣节/圣诞/春节期间粒子自动换成 🎃🎄🧧 主题。</string>
 		</dict>
 		<dict>
 			<key>cell</key><string>PSSwitchCell</string>
@@ -334,13 +336,6 @@
 			<key>cell</key><string>PSSwitchCell</string>
 			<key>label</key><string>减弱动态适配</string>
 			<key>key</key><string>reduce_motion_guard</string>
-			<key>defaults</key><string>com.axs.dockbeauty</string>
-			<key>default</key><true/>
-		</dict>
-		<dict>
-			<key>cell</key><string>PSSwitchCell</string>
-			<key>label</key><string>节日彩蛋</string>
-			<key>key</key><string>holiday_egg</string>
 			<key>defaults</key><string>com.axs.dockbeauty</string>
 			<key>default</key><true/>
 		</dict>

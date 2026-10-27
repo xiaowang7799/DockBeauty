@@ -191,7 +191,7 @@ static double axs_dockbeauty_doubleForKey(AxsDockBeautyConfig *self, NSString *k
 }
 - (NSInteger)axs_dockbeauty_particleStyle {
     double d = axs_dockbeauty_doubleForKey(self, @"particle_style", 0.0);
-    return (NSInteger)fmax(0.0, fmin(5.0, d));
+    return (NSInteger)fmax(0.0, fmin(6.0, d));
 }
 - (BOOL)axs_dockbeauty_lowPowerGuard {
     id v = self.snapshot[@"low_power_guard"];
@@ -199,10 +199,6 @@ static double axs_dockbeauty_doubleForKey(AxsDockBeautyConfig *self, NSString *k
 }
 - (BOOL)axs_dockbeauty_reduceMotionGuard {
     id v = self.snapshot[@"reduce_motion_guard"];
-    return [v isKindOfClass:[NSNumber class]] ? [v boolValue] : YES;
-}
-- (BOOL)axs_dockbeauty_holidayEgg {
-    id v = self.snapshot[@"holiday_egg"];
     return [v isKindOfClass:[NSNumber class]] ? [v boolValue] : YES;
 }
 
