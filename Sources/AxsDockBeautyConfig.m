@@ -139,9 +139,71 @@ static double axs_dockbeauty_doubleForKey(AxsDockBeautyConfig *self, NSString *k
     id v = self.snapshot[@"anim_fish"];
     return [v isKindOfClass:[NSNumber class]] ? [v boolValue] : NO;
 }
+- (BOOL)axs_dockbeauty_animRoll {
+    id v = self.snapshot[@"anim_roll"];
+    return [v isKindOfClass:[NSNumber class]] ? [v boolValue] : NO;
+}
+- (BOOL)axs_dockbeauty_animShake {
+    id v = self.snapshot[@"anim_shake"];
+    return [v isKindOfClass:[NSNumber class]] ? [v boolValue] : NO;
+}
 - (NSInteger)axs_dockbeauty_fishCount {
     double d = axs_dockbeauty_doubleForKey(self, @"fish_count", 5.0);
     return (NSInteger)fmax(1.0, fmin(12.0, d));
+}
+
+// ── Dock 本体 / 图标效果 / 翻滚抖动 / 点击反馈 / 季节粒子 / 系统保护 ──
+- (double)axs_dockbeauty_bgOpacity {
+    return fmax(0.0, fmin(1.0, axs_dockbeauty_doubleForKey(self, @"bg_opacity", 1.0)));
+}
+- (double)axs_dockbeauty_cornerRadius {
+    return fmax(0.0, fmin(40.0, axs_dockbeauty_doubleForKey(self, @"corner_radius", 28.0)));
+}
+- (double)axs_dockbeauty_iconScale {
+    return fmax(0.8, fmin(1.3, axs_dockbeauty_doubleForKey(self, @"icon_scale", 1.0)));
+}
+- (BOOL)axs_dockbeauty_iconGlow {
+    id v = self.snapshot[@"icon_glow"];
+    return [v isKindOfClass:[NSNumber class]] ? [v boolValue] : NO;
+}
+- (double)axs_dockbeauty_iconGlowIntensity {
+    return fmax(0.0, fmin(1.0, axs_dockbeauty_doubleForKey(self, @"icon_glow_intensity", 0.6)));
+}
+- (double)axs_dockbeauty_rollAmplitude {
+    return fmax(0.0, fmin(3.0, axs_dockbeauty_doubleForKey(self, @"roll_amplitude", 1.0)));
+}
+- (double)axs_dockbeauty_rollPeriod {
+    return fmax(0.5, fmin(20.0, axs_dockbeauty_doubleForKey(self, @"roll_period", 3.0)));
+}
+- (double)axs_dockbeauty_shakeAmplitude {
+    return fmax(0.0, fmin(3.0, axs_dockbeauty_doubleForKey(self, @"shake_amplitude", 1.0)));
+}
+- (double)axs_dockbeauty_shakePeriod {
+    return fmax(0.1, fmin(5.0, axs_dockbeauty_doubleForKey(self, @"shake_period", 0.5)));
+}
+- (BOOL)axs_dockbeauty_tapRipple {
+    id v = self.snapshot[@"tap_ripple"];
+    return [v isKindOfClass:[NSNumber class]] ? [v boolValue] : YES;
+}
+- (BOOL)axs_dockbeauty_tapBounce {
+    id v = self.snapshot[@"tap_bounce"];
+    return [v isKindOfClass:[NSNumber class]] ? [v boolValue] : YES;
+}
+- (NSInteger)axs_dockbeauty_particleStyle {
+    double d = axs_dockbeauty_doubleForKey(self, @"particle_style", 0.0);
+    return (NSInteger)fmax(0.0, fmin(5.0, d));
+}
+- (BOOL)axs_dockbeauty_lowPowerGuard {
+    id v = self.snapshot[@"low_power_guard"];
+    return [v isKindOfClass:[NSNumber class]] ? [v boolValue] : YES;
+}
+- (BOOL)axs_dockbeauty_reduceMotionGuard {
+    id v = self.snapshot[@"reduce_motion_guard"];
+    return [v isKindOfClass:[NSNumber class]] ? [v boolValue] : YES;
+}
+- (BOOL)axs_dockbeauty_holidayEgg {
+    id v = self.snapshot[@"holiday_egg"];
+    return [v isKindOfClass:[NSNumber class]] ? [v boolValue] : YES;
 }
 
 - (double)axs_dockbeauty_floatAmplitude {

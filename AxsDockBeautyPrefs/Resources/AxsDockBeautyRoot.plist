@@ -196,6 +196,154 @@
 			<key>min</key><real>1</real>
 			<key>max</key><real>12</real>
 		</dict>
+		<dict>
+			<key>cell</key><string>PSSwitchCell</string>
+			<key>label</key><string>翻滚（透视摆动）</string>
+			<key>key</key><string>anim_roll</string>
+			<key>defaults</key><string>com.axs.dockbeauty</string>
+			<key>default</key><false/>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSSwitchCell</string>
+			<key>label</key><string>抖动（高频小幅）</string>
+			<key>key</key><string>anim_shake</string>
+			<key>defaults</key><string>com.axs.dockbeauty</string>
+			<key>default</key><false/>
+		</dict>
+
+		<dict>
+			<key>cell</key><string>PSGroupCell</string>
+			<key>label</key><string>Dock 外观</string>
+			<key>footerText</key><string>背景透明度调 0 即隐藏 Dock 背景（纯图标悬浮）。</string>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSTitleValueCell</string>
+			<key>cellClass</key><string>AxsDockBeautySliderCell</string>
+			<key>label</key><string>背景透明度</string>
+			<key>key</key><string>bg_opacity</string>
+			<key>defaults</key><string>com.axs.dockbeauty</string>
+			<key>default</key><real>1.0</real>
+			<key>min</key><real>0.0</real>
+			<key>max</key><real>1.0</real>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSTitleValueCell</string>
+			<key>cellClass</key><string>AxsDockBeautySliderCell</string>
+			<key>label</key><string>圆角</string>
+			<key>key</key><string>corner_radius</string>
+			<key>defaults</key><string>com.axs.dockbeauty</string>
+			<key>default</key><real>28.0</real>
+			<key>min</key><real>0.0</real>
+			<key>max</key><real>40.0</real>
+		</dict>
+
+		<dict>
+			<key>cell</key><string>PSGroupCell</string>
+			<key>label</key><string>图标效果</string>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSTitleValueCell</string>
+			<key>cellClass</key><string>AxsDockBeautySliderCell</string>
+			<key>label</key><string>图标大小</string>
+			<key>key</key><string>icon_scale</string>
+			<key>defaults</key><string>com.axs.dockbeauty</string>
+			<key>default</key><real>1.0</real>
+			<key>min</key><real>0.8</real>
+			<key>max</key><real>1.3</real>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSSwitchCell</string>
+			<key>label</key><string>图标发光</string>
+			<key>key</key><string>icon_glow</string>
+			<key>defaults</key><string>com.axs.dockbeauty</string>
+			<key>default</key><false/>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSTitleValueCell</string>
+			<key>cellClass</key><string>AxsDockBeautySliderCell</string>
+			<key>label</key><string>发光强度</string>
+			<key>key</key><string>icon_glow_intensity</string>
+			<key>defaults</key><string>com.axs.dockbeauty</string>
+			<key>default</key><real>0.6</real>
+			<key>min</key><real>0.0</real>
+			<key>max</key><real>1.0</real>
+		</dict>
+
+		<dict>
+			<key>cell</key><string>PSGroupCell</string>
+			<key>label</key><string>点击反馈</string>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSSwitchCell</string>
+			<key>label</key><string>点击涟漪</string>
+			<key>key</key><string>tap_ripple</string>
+			<key>defaults</key><string>com.axs.dockbeauty</string>
+			<key>default</key><true/>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSSwitchCell</string>
+			<key>label</key><string>点击弹性回弹</string>
+			<key>key</key><string>tap_bounce</string>
+			<key>defaults</key><string>com.axs.dockbeauty</string>
+			<key>default</key><true/>
+		</dict>
+
+		<dict>
+			<key>cell</key><string>PSGroupCell</string>
+			<key>label</key><string>季节粒子（从上方飘落）</string>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSSegmentCell</string>
+			<key>label</key><string>粒子样式</string>
+			<key>key</key><string>particle_style</string>
+			<key>defaults</key><string>com.axs.dockbeauty</string>
+			<key>default</key><integer>0</integer>
+			<key>validValues</key>
+			<array>
+				<integer>0</integer>
+				<integer>1</integer>
+				<integer>2</integer>
+				<integer>3</integer>
+				<integer>4</integer>
+				<integer>5</integer>
+			</array>
+			<key>validTitles</key>
+			<array>
+				<string>关</string>
+				<string>❄️雪</string>
+				<string>🌸樱</string>
+				<string>🍂叶</string>
+				<string>⭐星</string>
+				<string>❤️心</string>
+			</array>
+		</dict>
+
+		<dict>
+			<key>cell</key><string>PSGroupCell</string>
+			<key>label</key><string>系统保护</string>
+			<key>footerText</key><string>节日彩蛋开启时，万圣节/圣诞/春节期间粒子自动换成 🎃🎄🧧 主题。</string>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSSwitchCell</string>
+			<key>label</key><string>低电量自动降载</string>
+			<key>key</key><string>low_power_guard</string>
+			<key>defaults</key><string>com.axs.dockbeauty</string>
+			<key>default</key><true/>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSSwitchCell</string>
+			<key>label</key><string>减弱动态适配</string>
+			<key>key</key><string>reduce_motion_guard</string>
+			<key>defaults</key><string>com.axs.dockbeauty</string>
+			<key>default</key><true/>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSSwitchCell</string>
+			<key>label</key><string>节日彩蛋</string>
+			<key>key</key><string>holiday_egg</string>
+			<key>defaults</key><string>com.axs.dockbeauty</string>
+			<key>default</key><true/>
+		</dict>
 
 		<dict>
 			<key>cell</key><string>PSGroupCell</string>

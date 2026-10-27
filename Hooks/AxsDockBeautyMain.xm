@@ -107,6 +107,45 @@ static NSArray<UIView *> *axs_dockbeauty_collectIcons(UIView *dock) {
     return out;
 }
 
+// 查找 Dock 的背景视图（毛玻璃/材质/壁纸效果层）。
+static UIView *axs_dockbeauty_findBackgroundView(UIView *view) {
+    for (UIView *sub in view.subviews) {
+        NSString *cls = NSStringFromClass([sub class]);
+        if ([cls containsString:@"WallpaperEffect"] || [cls containsString:@"Material"]
+            || [cls containsString:@"Backdrop"] || [cls containsString:@"Background"]) {
+            return sub;
+        }
+        UIView *deep = axs_dockbeauty_findBackgroundView(sub);
+        if (deep) return deep;
+    }
+    return nil;
+}
+
+// emoji 渲染成粒子 sprite。
+static UIImage *axs_dockbeauty_emojiImage(NSString *emoji, CGFloat size) {
+    UIGraphicsBeginImageContextWithOptions(CGSizeMake(size, size), NO, 0);
+    NSMutableParagraphStyle *style = [NSMutableParagraphStyle new];
+    style.alignment = NSTextAlignmentCenter;
+    [emoji drawInRect:CGRectMake(0, size * 0.05, size, size * 0.9)
+       withAttributes:@{NSFontAttributeName: [UIFont systemFontOfSize:size * 0.8],
+                        NSParagraphStyleAttributeName: style}];
+    UIImage *img = UIGraphicsGetImageFromCurrentImageContext();
+    UIGraphicsEndImageContext();
+    return img;
+}
+
+// 节日彩蛋：命中节日返回主题 emoji（🎃 万圣 10/25-11/2、🎄 圣诞 12/20-28、🧧 春节 1/21-2/20、❤️ 情人节 2/14）。
+static NSString *axs_dockbeauty_holidayEmoji(void) {
+    NSDateComponents *c = [[NSCalendar currentCalendar]
+        components:(NSCalendarUnitMonth | NSCalendarUnitDay) fromDate:[NSDate date]];
+    NSInteger m = c.month, d = c.day;
+    if ((m == 10 && d >= 25) || (m == 11 && d <= 2)) return @"🎃";
+    if (m == 12 && d >= 20 && d <= 28) return @"🎄";
+    if ((m == 1 && d >= 21) || (m == 2 && d <= 20)) return @"🧧";
+    if (m == 2 && d == 14) return @"❤️";
+    return nil;
+}
+
 @interface AxsDockBeautyAnimator : NSObject
 @property (nonatomic, weak) UIView *dockView;
 @property (nonatomic, strong) CADisplayLink *link;
@@ -115,11 +154,16 @@ static NSArray<UIView *> *axs_dockbeauty_collectIcons(UIView *dock) {
 @property (nonatomic, strong) CAEmitterLayer *fireflies;
 @property (nonatomic, strong) CAGradientLayer *streamLayer;
 @property (nonatomic, strong) NSMutableArray<CALayer *> *fishLayers;
+@property (nonatomic, strong) CAEmitterLayer *seasonEmitter;   // 季节粒子（雪/花瓣/落叶/星星/爱心）
+@property (nonatomic, strong) NSMutableArray<CAShapeLayer *> *rippleLayers;  // 点击涟漪
+@property (nonatomic, assign) NSInteger lastParticleStyle;     // 粒子样式缓存（变化时换 sprite）
 @property (nonatomic, assign) CGPoint originalCenter;
 @property (nonatomic, assign) CGFloat springPos;   // 弹簧物理：当前偏移
 @property (nonatomic, assign) CGFloat springVel;   // 弹簧物理：速度
 @property (nonatomic, assign) CFTimeInterval lastTick;
 @property (nonatomic, assign) NSUInteger frameCounter;  // 帧计数（发射器参数降频更新）
+// 点击反馈入口（弹性 + 涟漪）。
+- (void)axs_dockbeauty_tapFeedbackAt:(CGPoint)point inDock:(UIView *)dock icon:(UIView *)icon;
 @end
 
 // 画一条简易鱼（椭圆身体 + 三角尾），返回 CALayer。
@@ -239,6 +283,19 @@ static CALayer *axs_dockbeauty_makeFish(CGSize size, UIColor *color) {
         [a.fishLayers addObject:fish];
     }
 
+    // 季节粒子层（雪/花瓣/落叶/星星/爱心，从上方飘落）。
+    CAEmitterLayer *season = [CAEmitterLayer layer];
+    season.frame = dock.bounds;
+    season.emitterPosition = CGPointMake(CGRectGetMidX(dock.bounds), -10.0);
+    season.emitterSize = CGSizeMake(dock.bounds.size.width, 4.0);
+    season.emitterShape = kCAEmitterLayerLine;
+    season.renderMode = kCAEmitterLayerUnordered;
+    season.opacity = 0.0;
+    [dock.layer addSublayer:season];
+    a.seasonEmitter = season;
+    a.lastParticleStyle = -1;
+    a.rippleLayers = [NSMutableArray array];
+
     a.link = [CADisplayLink displayLinkWithTarget:a selector:@selector(tick:)];
     // 限帧 30fps：浮动/呼吸/流光是慢动画，30fps 足够流畅，CPU 直接降一半以上
     //（ProMotion 屏默认 120Hz，不限帧等于每秒 120 次全量计算，是发热主因）。
@@ -259,16 +316,38 @@ static CALayer *axs_dockbeauty_makeFish(CGSize size, UIColor *color) {
     BOOL animStream = [config axs_dockbeauty_animStream];
     BOOL animFirefly = [config axs_dockbeauty_animFirefly];
     BOOL animFish = [config axs_dockbeauty_animFish];
+    BOOL animRoll = [config axs_dockbeauty_animRoll];
+    BOOL animShake = [config axs_dockbeauty_animShake];
     AxsDockBeautyBubbleColorMode bubbleMode = [config axs_dockbeauty_bubbleColorMode];
     BOOL bubbleOn = (bubbleMode != AxsDockBeautyBubbleColorTransparent)
                     && [config axs_dockbeauty_bubbleDensity] > 0.01;
+    NSInteger particleStyle = [config axs_dockbeauty_particleStyle];
+
+    // ── 系统保护：低电量降载、减弱动态适配 ──
+    BOOL lowPower = [config axs_dockbeauty_lowPowerGuard]
+                    && [NSProcessInfo processInfo].isLowPowerModeEnabled;
+    BOOL reduceMotion = [config axs_dockbeauty_reduceMotionGuard]
+                        && UIAccessibilityIsReduceMotionEnabled();
+    if (reduceMotion) {
+        // 减弱动态：禁用位移/翻滚/抖动类动画，保留颜色/透明度。
+        animFloat = NO; animIconFloat = NO; animRandom = NO;
+        animRoll = NO; animShake = NO; animBreathing = NO;
+    }
+    if (lowPower) {
+        // 低电量：粒子全关、保留轻量位移。
+        animFirefly = NO; animFish = NO; particleStyle = 0; bubbleOn = NO; animStream = NO;
+    }
 
     // 全部关闭时什么都不做（也停掉发射器），彻底归零 CPU。
     if (!animFloat && !animIconFloat && !animBreathing && !animRandom && !animStream
-        && !animFirefly && !animFish && !bubbleOn) {
+        && !animFirefly && !animFish && !animRoll && !animShake && !bubbleOn
+        && particleStyle == 0
+        && [config axs_dockbeauty_bgOpacity] >= 0.999
+        && ![config axs_dockbeauty_iconGlow]) {
         if (self.bubbles.opacity != 0) self.bubbles.opacity = 0;
         if (self.fireflies.opacity != 0) self.fireflies.opacity = 0;
         if (self.streamLayer.opacity != 0) self.streamLayer.opacity = 0;
+        if (self.seasonEmitter.opacity != 0) self.seasonEmitter.opacity = 0;
         return;
     }
 
@@ -308,8 +387,28 @@ static CALayer *axs_dockbeauty_makeFish(CGSize size, UIColor *color) {
         offsetX += (CGFloat)(sin(t * 3.7) * 2.0 + sin(t * 7.3) * 1.5) * strength;
         offsetY += (CGFloat)(cos(t * 4.1) * 2.0 + cos(t * 9.1) * 1.5) * strength;
     }
+    // 抖动：高频小幅抖动（幅度/周期可调）。
+    if (animShake) {
+        double sAmp = [config axs_dockbeauty_shakeAmplitude] * strength;
+        double sPeriod = [config axs_dockbeauty_shakePeriod];
+        double omegaS = 2.0 * M_PI / sPeriod;
+        offsetX += (CGFloat)(sin(t * omegaS * 6.0) * 2.0 * sAmp);
+        offsetY += (CGFloat)(cos(t * omegaS * 7.3) * 1.5 * sAmp);
+    }
     CGPoint base = self.originalCenter;
     dock.layer.position = CGPointMake(base.x + offsetX, base.y + offsetY);
+
+    // ── Dock 本体：背景透明度 + 圆角 ──
+    double bgOpacity = [config axs_dockbeauty_bgOpacity];
+    UIView *bgView = axs_dockbeauty_findBackgroundView(dock);
+    if (bgView && fabs(bgView.alpha - bgOpacity) > 0.01) {
+        bgView.alpha = (CGFloat)bgOpacity;
+    }
+    double corner = [config axs_dockbeauty_cornerRadius];
+    if (fabs(dock.layer.cornerRadius - corner) > 0.5) {
+        dock.layer.cornerRadius = (CGFloat)corner;
+        dock.layer.masksToBounds = YES;
+    }
 
     // ── 呼吸：sublayerTransform 缩放（view.transform 会被 SpringBoard 重置，这个不会） ──
     CGFloat scale = 1.0;
@@ -322,27 +421,49 @@ static CALayer *axs_dockbeauty_makeFish(CGSize size, UIColor *color) {
         dock.layer.sublayerTransform = CATransform3DIdentity;
     }
 
-    // ── 图标独立浮动：每个图标独立相位（波浪，不同步），transform 不被 SpringBoard 覆盖 ──
-    // 图标嵌套在 *IconListView 容器里，必须递归收集真正的 SBIconView。
+    // ── 图标效果：独立浮动（波浪）+ 翻滚 + 大小 + 发光，transform 不被 SpringBoard 覆盖 ──
     {
         NSArray<UIView *> *icons = axs_dockbeauty_collectIcons(dock);
-        if (animIconFloat) {
-            double iAmp = 8.0 * [config axs_dockbeauty_iconFloatAmplitude] * strength;
-            double iPeriod = [config axs_dockbeauty_iconFloatPeriod];
-            double spread = [config axs_dockbeauty_iconFloatSpread];
-            double omega = 2.0 * M_PI / iPeriod;
-            for (NSUInteger i = 0; i < icons.count; i++) {
-                UIView *icon = icons[i];
-                // 每图标相位差 spread 弧度 —— 相位错开即不同步，形成波浪。
-                double phase = t * omega + (double)i * spread;
-                CGFloat bob = (CGFloat)(sin(phase) * iAmp);
-                icon.layer.transform = CATransform3DMakeTranslation(0, bob, 0);
+        double iAmp = 8.0 * [config axs_dockbeauty_iconFloatAmplitude] * strength;
+        double iPeriod = [config axs_dockbeauty_iconFloatPeriod];
+        double spread = [config axs_dockbeauty_iconFloatSpread];
+        double omega = 2.0 * M_PI / iPeriod;
+        double iconScale = [config axs_dockbeauty_iconScale];
+        double rAmp = [config axs_dockbeauty_rollAmplitude] * strength;
+        double rPeriod = [config axs_dockbeauty_rollPeriod];
+        double omegaR = 2.0 * M_PI / rPeriod;
+        BOOL glowOn = [config axs_dockbeauty_iconGlow];
+        double glowIntensity = [config axs_dockbeauty_iconGlowIntensity];
+
+        for (NSUInteger i = 0; i < icons.count; i++) {
+            UIView *icon = icons[i];
+            CATransform3D it = CATransform3DIdentity;
+            if (iconScale != 1.0) {
+                it = CATransform3DMakeScale((CGFloat)iconScale, (CGFloat)iconScale, 1.0);
             }
-        } else {
-            for (UIView *icon in icons) {
-                if (!CATransform3DIsIdentity(icon.layer.transform)) {
-                    icon.layer.transform = CATransform3DIdentity;
-                }
+            if (animIconFloat) {
+                double phase = t * omega + (double)i * spread;
+                it = CATransform3DConcat(it, CATransform3DMakeTranslation(0, (CGFloat)(sin(phase) * iAmp), 0));
+            }
+            if (animRoll) {
+                // 翻滚：绕 Y 轴摆动，带透视（m34），每图标相位错开。
+                double rPhase = t * omegaR + (double)i * 0.4;
+                CATransform3D roll = CATransform3DIdentity;
+                roll.m34 = -1.0f / 500.0f;
+                roll = CATransform3DRotate(roll, (CGFloat)(sin(rPhase) * 0.35 * rAmp), 0, 1, 0);
+                it = CATransform3DConcat(it, roll);
+            }
+            icon.layer.transform = it;
+
+            // 图标发光（柔和彩色投影，色相缓慢流动）。
+            if (glowOn) {
+                icon.layer.shadowColor = [UIColor colorWithHue:(CGFloat)fmod(0.55 + t * 0.03, 1.0)
+                                                  saturation:0.8 brightness:1 alpha:1].CGColor;
+                icon.layer.shadowRadius = (CGFloat)(6.0 + 6.0 * glowIntensity);
+                icon.layer.shadowOpacity = (float)(0.35 * glowIntensity);
+                icon.layer.shadowOffset = CGSizeMake(0, 3);
+            } else if (icon.layer.shadowOpacity != 0) {
+                icon.layer.shadowOpacity = 0;
             }
         }
     }
@@ -416,7 +537,93 @@ static CALayer *axs_dockbeauty_makeFish(CGSize size, UIColor *color) {
         self.bubbles.opacity = 0.0;
     }
 
+    // ── 季节粒子：雪/花瓣/落叶/星星/爱心飘落（节日彩蛋自动换主题） ──
+    if (particleStyle > 0) {
+        self.seasonEmitter.frame = dock.bounds;
+        self.seasonEmitter.emitterPosition = CGPointMake(CGRectGetMidX(dock.bounds), -10.0);
+        self.seasonEmitter.emitterSize = CGSizeMake(dock.bounds.size.width, 4.0);
+        self.seasonEmitter.opacity = 0.85;
+        // 节日彩蛋：命中节日用节日 emoji。
+        NSString *emoji = nil;
+        if ([config axs_dockbeauty_holidayEgg]) {
+            emoji = axs_dockbeauty_holidayEmoji();
+        }
+        NSInteger styleKey = emoji ? (100 + particleStyle) : particleStyle;
+        if (self.lastParticleStyle != styleKey) {
+            self.lastParticleStyle = styleKey;
+            if (!emoji) {
+                NSArray<NSString *> *emojis = @[@"", @"❄️", @"🌸", @"🍂", @"⭐", @"❤️"];
+                emoji = emojis[(NSUInteger)particleStyle < emojis.count ? (NSUInteger)particleStyle : 1];
+            }
+            UIImage *sprite = axs_dockbeauty_emojiImage(emoji, 24.0);
+            CAEmitterCell *cell = self.seasonEmitter.emitterCells.firstObject;
+            if (!cell) {
+                cell = [CAEmitterCell emitterCell];
+                cell.name = @"season";
+                self.seasonEmitter.emitterCells = @[cell];
+            }
+            cell.contents = (__bridge id)sprite.CGImage;
+            cell.birthRate = 6.0;
+            cell.lifetime = 8.0;
+            cell.velocity = 45.0;
+            cell.velocityRange = 20.0;
+            cell.emissionLongitude = M_PI_2;     // 向下飘落
+            cell.emissionRange = M_PI_6;
+            cell.spin = 0.6;
+            cell.spinRange = 1.5;
+            cell.scale = 0.55;
+            cell.scaleRange = 0.25;
+            cell.alphaSpeed = -0.04;
+        }
+    } else {
+        if (self.seasonEmitter.opacity != 0) self.seasonEmitter.opacity = 0;
+    }
+
+    // ── 点击涟漪：扩散圆环，播完移除 ──
+    for (NSInteger i = (NSInteger)self.rippleLayers.count - 1; i >= 0; i--) {
+        CAShapeLayer *ring = self.rippleLayers[(NSUInteger)i];
+        if (ring.animationKeys.count == 0) {
+            [ring removeFromSuperlayer];
+            [self.rippleLayers removeObjectAtIndex:(NSUInteger)i];
+        }
+    }
+
     [CATransaction commit];
+}
+
+// 点击反馈入口：图标点击时调用（弹性 + 涟漪）。
+- (void)axs_dockbeauty_tapFeedbackAt:(CGPoint)point inDock:(UIView *)dock icon:(UIView *)icon {
+    AxsDockBeautyConfig *config = [AxsDockBeautyConfig axs_dockbeauty_shared];
+    if ([config axs_dockbeauty_tapBounce] && icon) {
+        CAKeyframeAnimation *pop = [CAKeyframeAnimation animationWithKeyPath:@"transform.scale"];
+        pop.values = @[@1.0, @0.82, @1.08, @1.0];
+        pop.keyTimes = @[@0, @0.25, @0.6, @1.0];
+        pop.duration = 0.4;
+        pop.timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseOut];
+        [icon.layer addAnimation:pop forKey:@"axs_bounce"];
+    }
+    if ([config axs_dockbeauty_tapRipple] && dock) {
+        CAShapeLayer *ring = [CAShapeLayer layer];
+        ring.path = [UIBezierPath bezierPathWithOvalInRect:CGRectMake(-12, -12, 24, 24)].CGPath;
+        ring.position = point;
+        ring.fillColor = [UIColor clearColor].CGColor;
+        ring.strokeColor = [UIColor colorWithHue:0.55 saturation:0.7 brightness:1 alpha:0.8].CGColor;
+        ring.lineWidth = 2.5;
+        [dock.layer addSublayer:ring];
+        [self.rippleLayers addObject:ring];
+
+        CABasicAnimation *grow = [CABasicAnimation animationWithKeyPath:@"transform.scale"];
+        grow.fromValue = @1.0;
+        grow.toValue = @5.0;
+        CABasicAnimation *fade = [CABasicAnimation animationWithKeyPath:@"opacity"];
+        fade.fromValue = @0.8;
+        fade.toValue = @0.0;
+        CAAnimationGroup *group = [CAAnimationGroup animation];
+        group.animations = @[grow, fade];
+        group.duration = 0.7;
+        group.removedOnCompletion = YES;
+        [ring addAnimation:group forKey:@"axs_ripple"];
+    }
 }
 
 - (void)stop {
@@ -425,7 +632,10 @@ static CALayer *axs_dockbeauty_makeFish(CGSize size, UIColor *color) {
     [self.bubbles removeFromSuperlayer];
     [self.fireflies removeFromSuperlayer];
     [self.streamLayer removeFromSuperlayer];
+    [self.seasonEmitter removeFromSuperlayer];
     for (CALayer *f in self.fishLayers) [f removeFromSuperlayer];
+    for (CAShapeLayer *r in self.rippleLayers) [r removeFromSuperlayer];
+    [self.rippleLayers removeAllObjects];
 }
 @end
 
@@ -496,11 +706,19 @@ static NSArray<NSString *> *axs_dockbeauty_presetKeys(void) {
              @"bubble_size_min", @"bubble_size_max", @"bubble_density",
              @"anim_float", @"anim_icon_float", @"anim_breathing", @"anim_random",
              @"anim_stream", @"anim_firefly", @"anim_fish", @"fish_count",
+             @"anim_roll", @"anim_shake",
              @"float_amplitude", @"float_period",
              @"icon_float_amplitude", @"icon_float_period", @"icon_float_spread",
              @"breathing_amplitude", @"breathing_period",
+             @"roll_amplitude", @"roll_period",
+             @"shake_amplitude", @"shake_period",
              @"spring_enabled",
              @"stream_speed", @"stream_width", @"stream_height", @"stream_opacity",
+             @"bg_opacity", @"corner_radius",
+             @"icon_scale", @"icon_glow", @"icon_glow_intensity",
+             @"tap_ripple", @"tap_bounce",
+             @"particle_style",
+             @"low_power_guard", @"reduce_motion_guard", @"holiday_egg",
              @"wallpaper_tint", @"auto_schedule",
              @"schedule_day", @"schedule_night"];
 }
@@ -529,6 +747,33 @@ static void axs_dockbeauty_applyScheduledPreset(void) {
         }
     }
 }
+
+// ── 点击反馈：图标点击 → 弹性 + 涟漪 ─────────────────────────────────────────
+%hook SBIconView
+- (void)touchesEnded:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
+    %orig;
+    UITouch *touch = [touches anyObject];
+    if (!touch) return;
+    // 找到图标所在的 Dock（递归向上找 *DockView）。
+    UIView *parent = self.superview;
+    UIView *dock = nil;
+    while (parent) {
+        if ([NSStringFromClass([parent class]) hasSuffix:@"DockView"]) {
+            dock = parent;
+            break;
+        }
+        parent = parent.superview;
+    }
+    if (!dock) return;
+    CGPoint tapInDock = [touch locationInView:dock];
+    for (AxsDockBeautyAnimator *a in axs_dockbeauty_animators) {
+        if (a.dockView == dock) {
+            [a axs_dockbeauty_tapFeedbackAt:tapInDock inDock:dock icon:self];
+            break;
+        }
+    }
+}
+%end
 
 // ── 路 1：直接 hook Dock 类（最可靠） ───────────────────────────────────────
 %hook SBMainDockView

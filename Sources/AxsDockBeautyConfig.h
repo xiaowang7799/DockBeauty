@@ -37,7 +37,31 @@ typedef NS_ENUM(NSInteger, AxsDockBeautyBubbleColorMode) {
 - (BOOL)axs_dockbeauty_animStream;
 - (BOOL)axs_dockbeauty_animFirefly;
 - (BOOL)axs_dockbeauty_animFish;
+- (BOOL)axs_dockbeauty_animRoll;
+- (BOOL)axs_dockbeauty_animShake;
 - (NSInteger)axs_dockbeauty_fishCount;
+// Dock 本体：背景不透明度（0 = 隐藏背景）、圆角。
+- (double)axs_dockbeauty_bgOpacity;
+- (double)axs_dockbeauty_cornerRadius;
+// 图标效果：大小倍数、发光开关/强度。
+- (double)axs_dockbeauty_iconScale;
+- (BOOL)axs_dockbeauty_iconGlow;
+- (double)axs_dockbeauty_iconGlowIntensity;
+// 翻滚/抖动参数。
+- (double)axs_dockbeauty_rollAmplitude;
+- (double)axs_dockbeauty_rollPeriod;
+- (double)axs_dockbeauty_shakeAmplitude;
+- (double)axs_dockbeauty_shakePeriod;
+// 点击反馈：涟漪 + 弹性回弹。
+- (BOOL)axs_dockbeauty_tapRipple;
+- (BOOL)axs_dockbeauty_tapBounce;
+// 季节粒子：0=关 1=雪花 2=樱花 3=落叶 4=星星 5=爱心。
+- (NSInteger)axs_dockbeauty_particleStyle;
+// 系统保护：低电量降载、减弱动态适配。
+- (BOOL)axs_dockbeauty_lowPowerGuard;
+- (BOOL)axs_dockbeauty_reduceMotionGuard;
+// 节日彩蛋。
+- (BOOL)axs_dockbeauty_holidayEgg;
 // 浮动参数：振幅倍数（1.0 = 12pt）、周期秒。
 - (double)axs_dockbeauty_floatAmplitude;
 - (double)axs_dockbeauty_floatPeriod;
