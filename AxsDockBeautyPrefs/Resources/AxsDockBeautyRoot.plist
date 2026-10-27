@@ -333,11 +333,13 @@
 			<key>max</key><real>2.0</real>
 		</dict>
 		<dict>
-			<key>cell</key><string>PSTextFieldCell</string>
+			<key>cell</key><string>PSTitleValueCell</string>
+			<key>cellClass</key><string>AxsDockBeautyTextFieldCell</string>
 			<key>label</key><string>自定义粒子 emoji</string>
 			<key>key</key><string>particle_custom</string>
 			<key>defaults</key><string>com.axs.dockbeauty</string>
 			<key>default</key><string>✨</string>
+			<key>placeholder</key><string>如 🐟🎉✨（多个混合飘）</string>
 		</dict>
 
 		<dict>
@@ -515,18 +517,22 @@
 			<key>default</key><false/>
 		</dict>
 		<dict>
-			<key>cell</key><string>PSTextFieldCell</string>
+			<key>cell</key><string>PSTitleValueCell</string>
+			<key>cellClass</key><string>AxsDockBeautyTextFieldCell</string>
 			<key>label</key><string>白天预设名</string>
 			<key>key</key><string>schedule_day</string>
 			<key>defaults</key><string>com.axs.dockbeauty</string>
 			<key>default</key><string></string>
+			<key>placeholder</key><string>输入已保存的预设名</string>
 		</dict>
 		<dict>
-			<key>cell</key><string>PSTextFieldCell</string>
+			<key>cell</key><string>PSTitleValueCell</string>
+			<key>cellClass</key><string>AxsDockBeautyTextFieldCell</string>
 			<key>label</key><string>夜间预设名</string>
 			<key>key</key><string>schedule_night</string>
 			<key>defaults</key><string>com.axs.dockbeauty</string>
 			<key>default</key><string></string>
+			<key>placeholder</key><string>输入已保存的预设名</string>
 		</dict>
 
 		<dict>
