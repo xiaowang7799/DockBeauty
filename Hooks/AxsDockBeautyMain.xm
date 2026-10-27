@@ -88,6 +88,25 @@ static UIColor *axs_dockbeauty_bubbleColor(AxsDockBeautyConfig *config) {
     return [UIColor colorWithHue:rainbow saturation:0.85 brightness:1.0 alpha:1.0];
 }
 
+// 收集真正的图标视图（SBIconView 等）。
+// 关键：图标不是 Dock 的直接子视图——结构是 Dock → *IconListView（容器）→ SBIconView，
+// 所以必须递归找类名以 IconView 结尾的视图（IconListView 是 ListView 后缀，不会误收）。
+static void axs_dockbeauty_collectIconsInto(UIView *view, NSMutableArray<UIView *> *out) {
+    for (UIView *sub in view.subviews) {
+        NSString *cls = NSStringFromClass([sub class]);
+        if ([cls hasSuffix:@"IconView"]) {
+            [out addObject:sub];   // 找到图标即停，不再深入（内部是角标/图片）
+        } else {
+            axs_dockbeauty_collectIconsInto(sub, out);
+        }
+    }
+}
+static NSArray<UIView *> *axs_dockbeauty_collectIcons(UIView *dock) {
+    NSMutableArray<UIView *> *out = [NSMutableArray array];
+    if (dock) axs_dockbeauty_collectIconsInto(dock, out);
+    return out;
+}
+
 @interface AxsDockBeautyAnimator : NSObject
 @property (nonatomic, weak) UIView *dockView;
 @property (nonatomic, strong) CADisplayLink *link;
@@ -304,8 +323,9 @@ static CALayer *axs_dockbeauty_makeFish(CGSize size, UIColor *color) {
     }
 
     // ── 图标独立浮动：每个图标独立相位（波浪，不同步），transform 不被 SpringBoard 覆盖 ──
+    // 图标嵌套在 *IconListView 容器里，必须递归收集真正的 SBIconView。
     {
-        NSArray<UIView *> *icons = dock.subviews;
+        NSArray<UIView *> *icons = axs_dockbeauty_collectIcons(dock);
         if (animIconFloat) {
             double iAmp = 8.0 * [config axs_dockbeauty_iconFloatAmplitude] * strength;
             double iPeriod = [config axs_dockbeauty_iconFloatPeriod];
