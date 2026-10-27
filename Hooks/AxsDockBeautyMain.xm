@@ -568,7 +568,7 @@ static CALayer *axs_dockbeauty_makeFish(CGSize size, UIColor *color) {
             cell.velocity = 45.0;
             cell.velocityRange = 20.0;
             cell.emissionLongitude = M_PI_2;     // 向下飘落
-            cell.emissionRange = M_PI_6;
+            cell.emissionRange = M_PI / 6.0;
             cell.spin = 0.6;
             cell.spinRange = 1.5;
             cell.scale = 0.55;
