@@ -55,8 +55,12 @@ typedef NS_ENUM(NSInteger, AxsDockBeautyBubbleColorMode) {
 // 点击反馈：涟漪 + 弹性回弹。
 - (BOOL)axs_dockbeauty_tapRipple;
 - (BOOL)axs_dockbeauty_tapBounce;
-// 季节粒子：0=关 1=雪花 2=樱花 3=落叶 4=星星 5=爱心 6=自动（节日优先，否则按季节）。
+// 季节粒子：0=关 1=雪花 2=樱花 3=落叶 4=星星 5=爱心 6=自动（节日优先，否则按季节）7=自定义。
 - (NSInteger)axs_dockbeauty_particleStyle;
+// 粒子大小倍数（0.2–2.0）。
+- (double)axs_dockbeauty_particleSize;
+// 自定义粒子 emoji（可写多个，如 "🐟🎉✨"，按字符序列拆分轮流使用）。
+- (NSString *)axs_dockbeauty_particleCustom;
 // 系统保护：低电量降载、减弱动态适配。
 - (BOOL)axs_dockbeauty_lowPowerGuard;
 - (BOOL)axs_dockbeauty_reduceMotionGuard;

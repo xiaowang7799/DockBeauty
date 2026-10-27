@@ -155,6 +155,19 @@ static NSString *axs_dockbeauty_seasonEmoji(void) {
     return @"🍂";
 }
 
+// 把自定义文本按 emoji 字符序列拆分（正确处理多码点 emoji，如 🐟🎉✨）。
+static NSArray<NSString *> *axs_dockbeauty_splitEmoji(NSString *text) {
+    NSMutableArray<NSString *> *out = [NSMutableArray array];
+    [text enumerateSubstringsInRange:NSMakeRange(0, text.length)
+        options:NSStringEnumerationByComposedCharacterSequences
+        usingBlock:^(NSString *sub, NSRange substringRange, NSRange enclosingRange, BOOL *stop) {
+            NSString *trimmed = [sub stringByTrimmingCharactersInSet:
+                                 [NSCharacterSet whitespaceAndNewlineCharacterSet]];
+            if (trimmed.length > 0) [out addObject:sub];
+        }];
+    return out.count ? out : @[@"✨"];
+}
+
 @interface AxsDockBeautyAnimator : NSObject
 @property (nonatomic, weak) UIView *dockView;
 @property (nonatomic, strong) CADisplayLink *link;
@@ -546,45 +559,58 @@ static CALayer *axs_dockbeauty_makeFish(CGSize size, UIColor *color) {
         self.bubbles.opacity = 0.0;
     }
 
-    // ── 季节粒子：雪/花瓣/落叶/星星/爱心飘落；style=6 自动（节日优先，否则按季节） ──
+    // ── 季节粒子：style 1-5 手动 / 6 自动（节日优先季节兜底）/ 7 自定义 emoji（多个混合飘） ──
     if (particleStyle > 0) {
         self.seasonEmitter.frame = dock.bounds;
         self.seasonEmitter.emitterPosition = CGPointMake(CGRectGetMidX(dock.bounds), -10.0);
         self.seasonEmitter.emitterSize = CGSizeMake(dock.bounds.size.width, 4.0);
         self.seasonEmitter.opacity = 0.85;
-        NSString *emoji = nil;
+
+        NSArray<NSString *> *emojis = nil;
         NSInteger styleKey = particleStyle;
-        if (particleStyle == 6) {
-            // 自动模式：节日主题优先，否则按季节。key 用日期（同一天不重复重建 sprite）。
-            emoji = axs_dockbeauty_holidayEmoji() ?: axs_dockbeauty_seasonEmoji();
+        if (particleStyle == 7) {
+            // 自定义：文本按 emoji 拆分，多个混合飘。key 含字符串哈希（改了文本就重建）。
+            NSString *custom = [config axs_dockbeauty_particleCustom];
+            emojis = axs_dockbeauty_splitEmoji(custom);
+            styleKey = 7000 + (NSInteger)((NSUInteger)[custom hash] % 100000);
+        } else if (particleStyle == 6) {
+            // 自动：节日主题优先，否则按季节。key 用日期（同一天不重复重建 sprite）。
+            emojis = @[axs_dockbeauty_holidayEmoji() ?: axs_dockbeauty_seasonEmoji()];
             NSDateComponents *c = [[NSCalendar currentCalendar]
                 components:(NSCalendarUnitMonth | NSCalendarUnitDay) fromDate:[NSDate date]];
             styleKey = 1000 + c.month * 31 + c.day;
         } else {
-            NSArray<NSString *> *emojis = @[@"", @"❄️", @"🌸", @"🍂", @"⭐", @"❤️"];
-            emoji = emojis[(NSUInteger)particleStyle < emojis.count ? (NSUInteger)particleStyle : 1];
+            NSArray<NSString *> *pool = @[@"", @"❄️", @"🌸", @"🍂", @"⭐", @"❤️"];
+            emojis = @[pool[(NSUInteger)particleStyle < pool.count ? (NSUInteger)particleStyle : 1]];
         }
+
         if (self.lastParticleStyle != styleKey) {
             self.lastParticleStyle = styleKey;
-            UIImage *sprite = axs_dockbeauty_emojiImage(emoji, 24.0);
-            CAEmitterCell *cell = self.seasonEmitter.emitterCells.firstObject;
-            if (!cell) {
-                cell = [CAEmitterCell emitterCell];
-                cell.name = @"season";
-                self.seasonEmitter.emitterCells = @[cell];
+            // 每个 emoji 一个 cell（自定义多 emoji 时混合发射），发射率平摊。
+            NSMutableArray<CAEmitterCell *> *cells = [NSMutableArray array];
+            float perRate = (float)(6.0 / MAX((NSUInteger)1, emojis.count));
+            for (NSString *e in emojis) {
+                UIImage *sprite = axs_dockbeauty_emojiImage(e, 24.0);
+                CAEmitterCell *cell = [CAEmitterCell emitterCell];
+                cell.contents = (__bridge id)sprite.CGImage;
+                cell.birthRate = perRate;
+                cell.lifetime = 8.0;
+                cell.velocity = 45.0;
+                cell.velocityRange = 20.0;
+                cell.emissionLongitude = M_PI_2;     // 向下飘落
+                cell.emissionRange = M_PI / 6.0;
+                cell.spin = 0.6;
+                cell.spinRange = 1.5;
+                cell.alphaSpeed = -0.04;
+                [cells addObject:cell];
             }
-            cell.contents = (__bridge id)sprite.CGImage;
-            cell.birthRate = 6.0;
-            cell.lifetime = 8.0;
-            cell.velocity = 45.0;
-            cell.velocityRange = 20.0;
-            cell.emissionLongitude = M_PI_2;     // 向下飘落
-            cell.emissionRange = M_PI / 6.0;
-            cell.spin = 0.6;
-            cell.spinRange = 1.5;
-            cell.scale = 0.55;
-            cell.scaleRange = 0.25;
-            cell.alphaSpeed = -0.04;
+            self.seasonEmitter.emitterCells = cells;
+        }
+        // 大小每帧同步（滑块实时生效）。
+        double pSize = [config axs_dockbeauty_particleSize];
+        for (CAEmitterCell *cell in self.seasonEmitter.emitterCells) {
+            cell.scale = (float)pSize;
+            cell.scaleRange = (float)(pSize * 0.4);
         }
     } else {
         if (self.seasonEmitter.opacity != 0) self.seasonEmitter.opacity = 0;
@@ -728,7 +754,7 @@ static NSArray<NSString *> *axs_dockbeauty_presetKeys(void) {
              @"bg_opacity", @"corner_radius",
              @"icon_scale", @"icon_glow", @"icon_glow_intensity",
              @"tap_ripple", @"tap_bounce",
-             @"particle_style",
+             @"particle_style", @"particle_size", @"particle_custom",
              @"low_power_guard", @"reduce_motion_guard",
              @"wallpaper_tint", @"auto_schedule",
              @"schedule_day", @"schedule_night"];

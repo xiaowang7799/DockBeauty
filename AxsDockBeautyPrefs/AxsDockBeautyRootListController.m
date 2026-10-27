@@ -125,7 +125,7 @@ static NSArray<NSString *> *axs_dockbeauty_presetKeys(void) {
              @"bg_opacity", @"corner_radius",
              @"icon_scale", @"icon_glow", @"icon_glow_intensity",
              @"tap_ripple", @"tap_bounce",
-             @"particle_style",
+             @"particle_style", @"particle_size", @"particle_custom",
              @"low_power_guard", @"reduce_motion_guard",
              @"wallpaper_tint", @"auto_schedule",
              @"schedule_day", @"schedule_night"];

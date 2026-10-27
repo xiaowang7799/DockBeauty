@@ -291,7 +291,7 @@
 		<dict>
 			<key>cell</key><string>PSGroupCell</string>
 			<key>label</key><string>季节粒子（从上方飘落）</string>
-			<key>footerText</key><string>「自动」= 节日优先（🎃万圣/🎄圣诞/🧧春节/❤️情人节），否则按季节（冬❄️/春🌸/夏⭐/秋🍂）。</string>
+			<key>footerText</key><string>「自动」= 节日优先（🎃万圣/🎄圣诞/🧧春节/❤️情人节），否则按季节（冬❄️/春🌸/夏⭐/秋🍂）。「自定义」用下方输入的 emoji，多个连写混合飘（如 🐟🎉✨）。</string>
 		</dict>
 		<dict>
 			<key>cell</key><string>PSSegmentCell</string>
@@ -308,6 +308,7 @@
 				<integer>4</integer>
 				<integer>5</integer>
 				<integer>6</integer>
+				<integer>7</integer>
 			</array>
 			<key>validTitles</key>
 			<array>
@@ -318,7 +319,25 @@
 				<string>⭐</string>
 				<string>❤️</string>
 				<string>自动</string>
+				<string>自定义</string>
 			</array>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSTitleValueCell</string>
+			<key>cellClass</key><string>AxsDockBeautySliderCell</string>
+			<key>label</key><string>粒子大小</string>
+			<key>key</key><string>particle_size</string>
+			<key>defaults</key><string>com.axs.dockbeauty</string>
+			<key>default</key><real>0.55</real>
+			<key>min</key><real>0.2</real>
+			<key>max</key><real>2.0</real>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSTextFieldCell</string>
+			<key>label</key><string>自定义粒子 emoji</string>
+			<key>key</key><string>particle_custom</string>
+			<key>defaults</key><string>com.axs.dockbeauty</string>
+			<key>default</key><string>✨</string>
 		</dict>
 
 		<dict>

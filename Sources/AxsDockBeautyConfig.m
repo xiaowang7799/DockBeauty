@@ -191,7 +191,14 @@ static double axs_dockbeauty_doubleForKey(AxsDockBeautyConfig *self, NSString *k
 }
 - (NSInteger)axs_dockbeauty_particleStyle {
     double d = axs_dockbeauty_doubleForKey(self, @"particle_style", 0.0);
-    return (NSInteger)fmax(0.0, fmin(6.0, d));
+    return (NSInteger)fmax(0.0, fmin(7.0, d));
+}
+- (double)axs_dockbeauty_particleSize {
+    return fmax(0.2, fmin(2.0, axs_dockbeauty_doubleForKey(self, @"particle_size", 0.55)));
+}
+- (NSString *)axs_dockbeauty_particleCustom {
+    id v = self.snapshot[@"particle_custom"];
+    return [v isKindOfClass:[NSString class]] ? v : @"✨";
 }
 - (BOOL)axs_dockbeauty_lowPowerGuard {
     id v = self.snapshot[@"low_power_guard"];
