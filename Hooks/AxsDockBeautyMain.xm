@@ -180,6 +180,7 @@ static NSArray<NSString *> *axs_dockbeauty_splitEmoji(NSString *text) {
 @property (nonatomic, strong) NSMutableArray<CAShapeLayer *> *rippleLayers;  // 点击涟漪
 @property (nonatomic, assign) NSInteger lastParticleStyle;     // 粒子样式缓存（变化时换 sprite）
 @property (nonatomic, assign) CGPoint originalCenter;
+@property (nonatomic, assign) CGPoint lastWritten;   // 上帧写入的 position（检测系统重新布局用）
 @property (nonatomic, assign) CGFloat springPos;   // 弹簧物理：当前偏移
 @property (nonatomic, assign) CGFloat springVel;   // 弹簧物理：速度
 @property (nonatomic, assign) CFTimeInterval lastTick;
@@ -219,6 +220,8 @@ static CALayer *axs_dockbeauty_makeFish(CGSize size, UIColor *color) {
     a.dockView = dock;
     a.start = CFAbsoluteTimeGetCurrent();
     a.originalCenter = dock.center;
+    // 哨兵值：强制第一帧把实际位置采纳为基准（挂载时布局可能未完成，不能信任 dock.center）。
+    a.lastWritten = CGPointMake(-99999.0, -99999.0);
 
     // 流光渐变层（移动光带，zPosition 置于图标之上）。
     CAGradientLayer *stream = [CAGradientLayer layer];
@@ -370,6 +373,14 @@ static CALayer *axs_dockbeauty_makeFish(CGSize size, UIColor *color) {
         if (self.fireflies.opacity != 0) self.fireflies.opacity = 0;
         if (self.streamLayer.opacity != 0) self.streamLayer.opacity = 0;
         if (self.seasonEmitter.opacity != 0) self.seasonEmitter.opacity = 0;
+        // 曾写过偏移则复位到基准（否则 Dock 会停在最后一帧的偏移位置）。
+        if (self.lastWritten.x > -90000.0) {
+            CGPoint cur = dock.layer.position;
+            if (fabs(cur.x - self.lastWritten.x) < 0.5 && fabs(cur.y - self.lastWritten.y) < 0.5) {
+                dock.layer.position = self.originalCenter;
+            }
+            self.lastWritten = CGPointMake(-99999.0, -99999.0);
+        }
         return;
     }
 
@@ -417,8 +428,16 @@ static CALayer *axs_dockbeauty_makeFish(CGSize size, UIColor *color) {
         offsetX += (CGFloat)(sin(t * omegaS * 6.0) * 2.0 * sAmp);
         offsetY += (CGFloat)(cos(t * omegaS * 7.3) * 1.5 * sAmp);
     }
+    // 基准自愈：位置 ≠ 上帧写入值 → 系统重新布局了（或首帧/挂载时布局未完成），以现值为新基准。
+    // 修复"有的设备 Dock 跑到左上角"：挂载时机早于布局完成时，旧代码把 (0,0) 记成基准。
+    CGPoint currentPos = dock.layer.position;
+    if (fabs(currentPos.x - self.lastWritten.x) > 0.5 || fabs(currentPos.y - self.lastWritten.y) > 0.5) {
+        self.originalCenter = currentPos;
+    }
     CGPoint base = self.originalCenter;
-    dock.layer.position = CGPointMake(base.x + offsetX, base.y + offsetY);
+    CGPoint written = CGPointMake(base.x + offsetX, base.y + offsetY);
+    dock.layer.position = written;
+    self.lastWritten = written;
 
     // ── Dock 本体：背景透明度 + 圆角 ──
     double bgOpacity = [config axs_dockbeauty_bgOpacity];
