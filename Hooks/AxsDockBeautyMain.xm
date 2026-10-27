@@ -234,6 +234,7 @@ static CALayer *axs_dockbeauty_makeFish(CGSize size, UIColor *color) {
 
     AxsDockBeautyConfig *config = [AxsDockBeautyConfig axs_dockbeauty_shared];
     BOOL animFloat = [config axs_dockbeauty_animFloat];
+    BOOL animIconFloat = [config axs_dockbeauty_animIconFloat];
     BOOL animBreathing = [config axs_dockbeauty_animBreathing];
     BOOL animRandom = [config axs_dockbeauty_animRandom];
     BOOL animStream = [config axs_dockbeauty_animStream];
@@ -244,7 +245,7 @@ static CALayer *axs_dockbeauty_makeFish(CGSize size, UIColor *color) {
                     && [config axs_dockbeauty_bubbleDensity] > 0.01;
 
     // 全部关闭时什么都不做（也停掉发射器），彻底归零 CPU。
-    if (!animFloat && !animBreathing && !animRandom && !animStream
+    if (!animFloat && !animIconFloat && !animBreathing && !animRandom && !animStream
         && !animFirefly && !animFish && !bubbleOn) {
         if (self.bubbles.opacity != 0) self.bubbles.opacity = 0;
         if (self.fireflies.opacity != 0) self.fireflies.opacity = 0;
@@ -300,6 +301,30 @@ static CALayer *axs_dockbeauty_makeFish(CGSize size, UIColor *color) {
         dock.layer.sublayerTransform = CATransform3DMakeScale(scale, scale, 1.0);
     } else {
         dock.layer.sublayerTransform = CATransform3DIdentity;
+    }
+
+    // ── 图标独立浮动：每个图标独立相位（波浪，不同步），transform 不被 SpringBoard 覆盖 ──
+    {
+        NSArray<UIView *> *icons = dock.subviews;
+        if (animIconFloat) {
+            double iAmp = 8.0 * [config axs_dockbeauty_iconFloatAmplitude] * strength;
+            double iPeriod = [config axs_dockbeauty_iconFloatPeriod];
+            double spread = [config axs_dockbeauty_iconFloatSpread];
+            double omega = 2.0 * M_PI / iPeriod;
+            for (NSUInteger i = 0; i < icons.count; i++) {
+                UIView *icon = icons[i];
+                // 每图标相位差 spread 弧度 —— 相位错开即不同步，形成波浪。
+                double phase = t * omega + (double)i * spread;
+                CGFloat bob = (CGFloat)(sin(phase) * iAmp);
+                icon.layer.transform = CATransform3DMakeTranslation(0, bob, 0);
+            }
+        } else {
+            for (UIView *icon in icons) {
+                if (!CATransform3DIsIdentity(icon.layer.transform)) {
+                    icon.layer.transform = CATransform3DIdentity;
+                }
+            }
+        }
     }
 
     // ── 流光：移动光带（长/宽/高/速度/透明度可调） ──
@@ -449,9 +474,10 @@ static NSArray<NSString *> *axs_dockbeauty_presetKeys(void) {
              @"bubble_hue", @"bubble_saturation", @"bubble_value",
              @"stream_hue", @"stream_hue2",
              @"bubble_size_min", @"bubble_size_max", @"bubble_density",
-             @"anim_float", @"anim_breathing", @"anim_random",
+             @"anim_float", @"anim_icon_float", @"anim_breathing", @"anim_random",
              @"anim_stream", @"anim_firefly", @"anim_fish", @"fish_count",
              @"float_amplitude", @"float_period",
+             @"icon_float_amplitude", @"icon_float_period", @"icon_float_spread",
              @"breathing_amplitude", @"breathing_period",
              @"spring_enabled",
              @"stream_speed", @"stream_width", @"stream_height", @"stream_opacity",

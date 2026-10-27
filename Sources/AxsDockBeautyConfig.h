@@ -31,6 +31,7 @@ typedef NS_ENUM(NSInteger, AxsDockBeautyBubbleColorMode) {
 - (double)axs_dockbeauty_bubbleDensity;
 // 动画模式开关。
 - (BOOL)axs_dockbeauty_animFloat;
+- (BOOL)axs_dockbeauty_animIconFloat;
 - (BOOL)axs_dockbeauty_animBreathing;
 - (BOOL)axs_dockbeauty_animRandom;
 - (BOOL)axs_dockbeauty_animStream;
@@ -40,6 +41,10 @@ typedef NS_ENUM(NSInteger, AxsDockBeautyBubbleColorMode) {
 // 浮动参数：振幅倍数（1.0 = 12pt）、周期秒。
 - (double)axs_dockbeauty_floatAmplitude;
 - (double)axs_dockbeauty_floatPeriod;
+// 图标独立浮动参数：振幅倍数（1.0 = 8pt）、周期秒、相位差（弧度/图标，越大波浪越明显）。
+- (double)axs_dockbeauty_iconFloatAmplitude;
+- (double)axs_dockbeauty_iconFloatPeriod;
+- (double)axs_dockbeauty_iconFloatSpread;
 // 呼吸参数：缩放振幅（0.08 = ±8%）、周期秒。
 - (double)axs_dockbeauty_breathingAmplitude;
 - (double)axs_dockbeauty_breathingPeriod;

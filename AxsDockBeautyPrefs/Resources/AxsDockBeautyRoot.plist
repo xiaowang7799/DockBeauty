@@ -146,6 +146,13 @@
 		</dict>
 		<dict>
 			<key>cell</key><string>PSSwitchCell</string>
+			<key>label</key><string>图标独立浮动（波浪，不同步）</string>
+			<key>key</key><string>anim_icon_float</string>
+			<key>defaults</key><string>com.axs.dockbeauty</string>
+			<key>default</key><false/>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSSwitchCell</string>
 			<key>label</key><string>呼吸（缩放脉动）</string>
 			<key>key</key><string>anim_breathing</string>
 			<key>defaults</key><string>com.axs.dockbeauty</string>
@@ -220,6 +227,41 @@
 			<key>key</key><string>spring_enabled</string>
 			<key>defaults</key><string>com.axs.dockbeauty</string>
 			<key>default</key><false/>
+		</dict>
+
+		<dict>
+			<key>cell</key><string>PSGroupCell</string>
+			<key>label</key><string>图标浮动参数（波浪，不同步）</string>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSTitleValueCell</string>
+			<key>cellClass</key><string>AxsDockBeautySliderCell</string>
+			<key>label</key><string>图标振幅（倍）</string>
+			<key>key</key><string>icon_float_amplitude</string>
+			<key>defaults</key><string>com.axs.dockbeauty</string>
+			<key>default</key><real>1.0</real>
+			<key>min</key><real>0.0</real>
+			<key>max</key><real>3.0</real>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSTitleValueCell</string>
+			<key>cellClass</key><string>AxsDockBeautySliderCell</string>
+			<key>label</key><string>图标周期（秒）</string>
+			<key>key</key><string>icon_float_period</string>
+			<key>defaults</key><string>com.axs.dockbeauty</string>
+			<key>default</key><real>2.5</real>
+			<key>min</key><real>0.3</real>
+			<key>max</key><real>20.0</real>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSTitleValueCell</string>
+			<key>cellClass</key><string>AxsDockBeautySliderCell</string>
+			<key>label</key><string>波浪错开（相位差）</string>
+			<key>key</key><string>icon_float_spread</string>
+			<key>defaults</key><string>com.axs.dockbeauty</string>
+			<key>default</key><real>0.9</real>
+			<key>min</key><real>0.0</real>
+			<key>max</key><real>3.0</real>
 		</dict>
 
 		<dict>

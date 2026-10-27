@@ -115,6 +115,10 @@ static double axs_dockbeauty_doubleForKey(AxsDockBeautyConfig *self, NSString *k
     id v = self.snapshot[@"anim_float"];
     return [v isKindOfClass:[NSNumber class]] ? [v boolValue] : YES;
 }
+- (BOOL)axs_dockbeauty_animIconFloat {
+    id v = self.snapshot[@"anim_icon_float"];
+    return [v isKindOfClass:[NSNumber class]] ? [v boolValue] : NO;
+}
 - (BOOL)axs_dockbeauty_animBreathing {
     id v = self.snapshot[@"anim_breathing"];
     return [v isKindOfClass:[NSNumber class]] ? [v boolValue] : NO;
@@ -145,6 +149,15 @@ static double axs_dockbeauty_doubleForKey(AxsDockBeautyConfig *self, NSString *k
 }
 - (double)axs_dockbeauty_floatPeriod {
     return fmax(0.5, fmin(20.0, axs_dockbeauty_doubleForKey(self, @"float_period", 5.24)));
+}
+- (double)axs_dockbeauty_iconFloatAmplitude {
+    return fmax(0.0, fmin(3.0, axs_dockbeauty_doubleForKey(self, @"icon_float_amplitude", 1.0)));
+}
+- (double)axs_dockbeauty_iconFloatPeriod {
+    return fmax(0.3, fmin(20.0, axs_dockbeauty_doubleForKey(self, @"icon_float_period", 2.5)));
+}
+- (double)axs_dockbeauty_iconFloatSpread {
+    return fmax(0.0, fmin(3.0, axs_dockbeauty_doubleForKey(self, @"icon_float_spread", 0.9)));
 }
 - (double)axs_dockbeauty_breathingAmplitude {
     return fmax(0.0, fmin(0.3, axs_dockbeauty_doubleForKey(self, @"breathing_amplitude", 0.08)));
