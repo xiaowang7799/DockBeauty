@@ -185,8 +185,15 @@ static NSArray<NSString *> *axs_dockbeauty_splitEmoji(NSString *text) {
 @property (nonatomic, assign) CGFloat springVel;   // 弹簧物理：速度
 @property (nonatomic, assign) CFTimeInterval lastTick;
 @property (nonatomic, assign) NSUInteger frameCounter;  // 帧计数（发射器参数降频更新）
+// 图标列表 / 背景层缓存：层级不会每帧变，之前每帧都递归扫一遍 Dock 子树。
+@property (nonatomic, strong) NSArray<UIView *> *cachedIcons;
+@property (nonatomic, weak) UIView *cachedBackgroundView;
+@property (nonatomic, assign) NSUInteger cacheAge;
 // 点击反馈入口（弹性 + 涟漪）。
 - (void)axs_dockbeauty_tapFeedbackAt:(CGPoint)point inDock:(UIView *)dock icon:(UIView *)icon;
+// 空闲停表 / 改设置后恢复。
+- (void)axs_dockbeauty_pause;
+- (void)axs_dockbeauty_resume;
 @end
 
 // 画一条简易鱼（椭圆身体 + 三角尾），返回 CALayer。
@@ -381,15 +388,25 @@ static CALayer *axs_dockbeauty_makeFish(CGSize size, UIColor *color) {
             }
             self.lastWritten = CGPointMake(-99999.0, -99999.0);
         }
+        // 全部关闭：直接停表。之前只是 return，显示链接仍然 30fps 空转（每帧 20+ 次配置查询）。
+        [self axs_dockbeauty_pause];
         return;
+    }
+
+    // 图标列表 / 背景层 1 秒刷新一次：视图层级不会每帧变。
+    // 之前是 30fps × 2 次递归遍历 Dock 子树 + 每节点一次 NSStringFromClass。
+    if (self.cachedIcons == nil || self.cacheAge++ >= 30) {
+        self.cacheAge = 0;
+        self.cachedIcons = axs_dockbeauty_collectIcons(dock);
+        self.cachedBackgroundView = axs_dockbeauty_findBackgroundView(dock);
     }
 
     // 每帧改 CALayer 属性时禁用隐式动画，避免逐帧创建 CAAnimation 对象。
     [CATransaction begin];
     [CATransaction setDisableActions:YES];
 
-    self.bubbles.frame = dock.bounds;
-    self.fireflies.frame = dock.bounds;
+    if (!CGRectEqualToRect(self.bubbles.frame, dock.bounds)) self.bubbles.frame = dock.bounds;
+    if (!CGRectEqualToRect(self.fireflies.frame, dock.bounds)) self.fireflies.frame = dock.bounds;
 
     id strengthVal = [config axs_dockbeauty_valueForKey:@"value" defaultValue:@(1.0)];
     double strength = [strengthVal isKindOfClass:[NSNumber class]] ? [strengthVal doubleValue] : 1.0;
@@ -436,12 +453,15 @@ static CALayer *axs_dockbeauty_makeFish(CGSize size, UIColor *color) {
     }
     CGPoint base = self.originalCenter;
     CGPoint written = CGPointMake(base.x + offsetX, base.y + offsetY);
-    dock.layer.position = written;
+    // 值没变就不写：赋相同的值同样会让图层重新提交。
+    if (fabs(currentPos.x - written.x) > 0.01 || fabs(currentPos.y - written.y) > 0.01) {
+        dock.layer.position = written;
+    }
     self.lastWritten = written;
 
     // ── Dock 本体：背景透明度 + 圆角 ──
     double bgOpacity = [config axs_dockbeauty_bgOpacity];
-    UIView *bgView = axs_dockbeauty_findBackgroundView(dock);
+    UIView *bgView = self.cachedBackgroundView;
     if (bgView && fabs(bgView.alpha - bgOpacity) > 0.01) {
         bgView.alpha = (CGFloat)bgOpacity;
     }
@@ -458,13 +478,13 @@ static CALayer *axs_dockbeauty_makeFish(CGSize size, UIColor *color) {
         double bPeriod = [config axs_dockbeauty_breathingPeriod];
         scale = 1.0 + (CGFloat)(sin(t * 2.0 * M_PI / bPeriod) * bAmp * strength);
         dock.layer.sublayerTransform = CATransform3DMakeScale(scale, scale, 1.0);
-    } else {
+    } else if (!CATransform3DIsIdentity(dock.layer.sublayerTransform)) {
         dock.layer.sublayerTransform = CATransform3DIdentity;
     }
 
     // ── 图标效果：独立浮动（波浪）+ 翻滚 + 大小 + 发光，transform 不被 SpringBoard 覆盖 ──
     {
-        NSArray<UIView *> *icons = axs_dockbeauty_collectIcons(dock);
+        NSArray<UIView *> *icons = self.cachedIcons;
         double iAmp = 8.0 * [config axs_dockbeauty_iconFloatAmplitude] * strength;
         double iPeriod = [config axs_dockbeauty_iconFloatPeriod];
         double spread = [config axs_dockbeauty_iconFloatSpread];
@@ -494,7 +514,9 @@ static CALayer *axs_dockbeauty_makeFish(CGSize size, UIColor *color) {
                 roll = CATransform3DRotate(roll, (CGFloat)(sin(rPhase) * 0.35 * rAmp), 0, 1, 0);
                 it = CATransform3DConcat(it, roll);
             }
-            icon.layer.transform = it;
+            if (!CATransform3DEqualToTransform(icon.layer.transform, it)) {
+                icon.layer.transform = it;
+            }
 
             // 图标发光（柔和彩色投影，色相缓慢流动）。
             if (glowOn) {
@@ -531,12 +553,13 @@ static CALayer *axs_dockbeauty_makeFish(CGSize size, UIColor *color) {
         self.streamLayer.colors = @[(id)[UIColor clearColor].CGColor,
                                     (id)c1.CGColor, (id)c2.CGColor,
                                     (id)[UIColor clearColor].CGColor];
-    } else {
+    } else if (self.streamLayer.opacity != 0) {
         self.streamLayer.opacity = 0;
     }
 
     // ── 萤火虫 ──
-    self.fireflies.opacity = animFirefly ? 0.8f : 0.0f;
+    float fireflyOpacity = animFirefly ? 0.8f : 0.0f;
+    if (self.fireflies.opacity != fireflyOpacity) self.fireflies.opacity = fireflyOpacity;
 
     // ── 鱼缸 ──
     NSInteger fishCount = [config axs_dockbeauty_fishCount];
@@ -546,16 +569,19 @@ static CALayer *axs_dockbeauty_makeFish(CGSize size, UIColor *color) {
             if (fish.opacity != 0) fish.opacity = 0;
             continue;
         }
-        fish.opacity = 0.85;
+        if (fish.opacity != 0.85f) fish.opacity = 0.85f;
         // 水平游动（正弦往返），垂直轻微摆动。
         double speed = 0.3 + (i % 5) * 0.08;
         double phase = t * speed + i * 1.3;
         CGFloat fishX = (CGFloat)(sin(phase) * dock.bounds.size.width * 0.35) + CGRectGetMidX(dock.bounds);
         CGFloat fishY = (CGFloat)(cos(phase * 0.7) * 10.0) + CGRectGetMidY(dock.bounds);
-        fish.position = CGPointMake(fishX, fishY);
+        if (fabs(fish.position.x - fishX) > 0.01 || fabs(fish.position.y - fishY) > 0.01) {
+            fish.position = CGPointMake(fishX, fishY);
+        }
         // 根据方向翻转。
         double dx = cos(phase);
-        fish.transform = dx < 0 ? CATransform3DMakeScale(-1, 1, 1) : CATransform3DIdentity;
+        CATransform3D ft = dx < 0 ? CATransform3DMakeScale(-1, 1, 1) : CATransform3DIdentity;
+        if (!CATransform3DEqualToTransform(fish.transform, ft)) fish.transform = ft;
     }
 
     // ── 气泡：仅发射器参数变化时更新（每 10 帧一次，色彩渐变足够平滑） ──
@@ -682,6 +708,21 @@ static CALayer *axs_dockbeauty_makeFish(CGSize size, UIColor *color) {
     }
 }
 
+// 暂停：只停表，不动图层（全部特效关闭时用，避免 30fps 空转）。
+- (void)axs_dockbeauty_pause {
+    [self.link invalidate];
+    self.link = nil;
+}
+
+// 恢复：配置变更后再启动。
+- (void)axs_dockbeauty_resume {
+    if (self.link || !self.dockView) return;
+    self.cachedIcons = nil;
+    self.link = [CADisplayLink displayLinkWithTarget:self selector:@selector(tick:)];
+    self.link.preferredFramesPerSecond = 30;
+    [self.link addToRunLoop:[NSRunLoop mainRunLoop] forMode:NSRunLoopCommonModes];
+}
+
 - (void)stop {
     [self.link invalidate];
     self.link = nil;
@@ -710,7 +751,10 @@ static void axs_dockbeauty_attachToDock(id dockObj) {
     NSMutableArray<AxsDockBeautyAnimator *> *dead = [NSMutableArray array];
     for (AxsDockBeautyAnimator *a in axs_dockbeauty_animators) {
         if (a.dockView == nil) { [dead addObject:a]; continue; }
-        if (a.dockView == dock) return;    // 已挂过
+        if (a.dockView == dock) {          // 已挂过：可能刚从“全部关闭”的停表状态回来
+            [a axs_dockbeauty_resume];
+            return;
+        }
     }
     if (dead.count) [axs_dockbeauty_animators removeObjectsInArray:dead];
 
@@ -878,5 +922,16 @@ static void axs_dockbeauty_applyScheduledPreset(void) {
             }];
             [NSRunLoop.mainRunLoop addTimer:scan forMode:NSRunLoopCommonModes];
         });
+
+        // 全部特效关闭时显示链接会停表；改设置后需要重新拉起（否则改了也不生效）。
+        [[NSNotificationCenter defaultCenter] addObserverForName:AxsDockBeautyPreferencesChanged
+                                                          object:nil
+                                                           queue:[NSOperationQueue mainQueue]
+                                                      usingBlock:^(NSNotification *note) {
+            (void)note;
+            for (AxsDockBeautyAnimator *animator in axs_dockbeauty_animators) {
+                [animator axs_dockbeauty_resume];
+            }
+        }];
     }
 }
